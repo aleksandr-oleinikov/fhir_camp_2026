@@ -1,5 +1,7 @@
 <li>
   <a class="med-row" href="<%= typeof href !== 'undefined' ? href : '/medicines/' + m.id %>">
+    <%- include('med-icon', { form: m.form }) %>
+    <span class="med-body">
     <span class="med-name"><%= m.medication %></span>
     <span class="med-detail">
       <% if (m.reason) { %><span class="med-for"><%= m.reason %></span><% } %>
@@ -10,5 +12,6 @@
         <% m.tags.forEach(t => { %><span class="tag tag-<%= t.tone %>"><%= t.text %></span><% }) %>
       </span>
     <% } %>
+    </span>
   </a>
 </li>

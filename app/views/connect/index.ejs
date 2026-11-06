@@ -7,7 +7,7 @@
   <div class="panel panel-important" role="alert"><p>We could not remove the medicines added during the demo from the test server. They may still show next time.</p></div>
 <% } %>
 
-<h1>Connect to payer</h1>
+<h1>Connect to data source</h1>
 <p class="lead">Choose where your medicines and health records are kept.</p>
 
 <ul class="payers" role="list">
@@ -26,4 +26,10 @@
     </li>
   <% }) %>
 </ul>
+
+<%# Not working in this demo. %>
+<button class="button button-secondary" type="button" aria-disabled="true">
+  <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  Add data source<span class="visually-hidden"> (not available in this demo)</span>
+</button>
 <%- include('../partials/foot') %>

@@ -7,7 +7,10 @@
   </div>
 <% } %>
 
-<h1><%= med.medication %></h1>
+<div class="med-title">
+  <%- include('../partials/med-icon', { form: med.form }) %>
+  <h1><%= med.medication %></h1>
+</div>
 <% if (med.strength) { %><p class="lead"><%= med.strength %></p><% } %>
 
 <% conflicts.forEach(c => { %>

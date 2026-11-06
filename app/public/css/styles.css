@@ -307,8 +307,9 @@ a:hover { text-decoration-thickness: 3px; }
 /* ---- Medicines list (home) ------------------------------------------- */
 .med-list { list-style: none; padding: 0; display: grid; gap: var(--space-1); }
 .med-row {
-  display: grid;
-  gap: 0.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
   padding: var(--space-2) calc(var(--space-2) + 1.25rem) var(--space-2) var(--space-2);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -331,9 +332,25 @@ a:hover { text-decoration-thickness: 3px; }
 .med-row:focus-visible * { color: var(--focus-text) !important; }
 .med-name { font-weight: 700; font-size: 1.2rem; color: var(--link); text-decoration: underline; text-underline-offset: 0.15em; }
 .med-detail { display: flex; flex-direction: column; color: var(--text-muted); }
+.med-body { display: grid; gap: 0.25rem; flex: 1; min-width: 0; }
+
+/* Medicine icons: decorative, drawn in the link colour on a soft tint */
+:root { --icon-fill: #cfe3f7; }
+@media (prefers-color-scheme: dark) { :root { --icon-fill: #2f5f8f; } }
+.med-icon {
+  flex: none; display: grid; place-items: center;
+  width: 3rem; height: 3rem; border-radius: 50%;
+  background: color-mix(in srgb, var(--link) 12%, var(--surface));
+  color: var(--link);
+}
+.med-icon svg { width: 2rem; height: 2rem; overflow: visible; }
+.med-title { display: flex; align-items: center; gap: 0.75rem; margin-bottom: var(--space-2); }
+.med-title h1 { margin: 0; }
+.med-title .med-icon { width: 3.5rem; height: 3.5rem; }
+.med-title .med-icon svg { width: 2.4rem; height: 2.4rem; }
 
 @media (min-width: 40rem) {
-  .med-row { grid-template-columns: 11rem 1fr; column-gap: var(--space-2); align-items: baseline; }
+  .med-body { grid-template-columns: 11rem 1fr; column-gap: var(--space-2); align-items: baseline; }
   .med-detail { flex-direction: row; flex-wrap: wrap; column-gap: var(--space-2); }
 }
 
@@ -424,7 +441,7 @@ a:hover { text-decoration-thickness: 3px; }
 .section-heading { margin-bottom: 0.2rem; }
 
 .med-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
-@media (min-width: 40rem) { .med-row .med-tags { grid-column: 2; } }
+@media (min-width: 40rem) { .med-body .med-tags { grid-column: 2; } }
 
 .severity { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; }
 .severity-marks { display: inline-flex; gap: 3px; }
@@ -610,6 +627,10 @@ a.payer:hover { border-color: var(--brand); color: var(--brand); }
 .payer:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 button.payer { cursor: default; }
 .payer-detail { font-weight: 400; font-size: 0.95rem; }
+.button-secondary { background: var(--surface); color: var(--link); border: 2px solid var(--brand); box-shadow: 0 3px 0 var(--brand); gap: 0.5rem; width: 100%; max-width: 30rem; }
+.button-secondary:hover { background: var(--neutral-bg); }
+.button-secondary[aria-disabled="true"] { cursor: default; }
+.button-icon { width: 1.25rem; height: 1.25rem; flex: none; }
 .payer-has-logo { gap: 0.25rem; background: #fff; color: #0b0c0c; }
 .payer-logo { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .payer-fill { padding: 0; overflow: hidden; }

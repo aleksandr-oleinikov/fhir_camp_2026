@@ -131,6 +131,20 @@ function toResult(o) {
   return { ...o, statusInfo: RESULT_STATUS[key], range };
 }
 
+// Which icon to show: tablet, capsule, liquid, inhaled, or generic when we
+// cannot tell (for example a medicine the patient typed in).
+function medicineForm(m) {
+  if (m.form) return m.form;
+  const listed = otc.find((o) => o.name.toLowerCase() === (m.medication || '').toLowerCase());
+  if (listed) return listed.form;
+  const text = `${m.strength || ''} ${m.medication || ''}`.toLowerCase();
+  if (/capsule/.test(text)) return 'capsule';
+  if (/tablet|caplet/.test(text)) return 'tablet';
+  if (/nebuli|inhal|puffer/.test(text)) return 'inhaled';
+  if (/liquid|solution|syrup|suspension|mixture/.test(text)) return 'liquid';
+  return 'generic';
+}
+
 // Small, non-alarming tags. "!" is kept for conflicts only.
 function toMedicine(state, m) {
   const tags = [];
@@ -141,7 +155,7 @@ function toMedicine(state, m) {
   if (m.changeNote) tags.push({ tone: 'neutral', text: m.changeNote });
   if (m.lastSupply) tags.push({ tone: 'neutral', text: `Last collected ${formatDate(m.lastSupply.date)}` });
   if (m.source === 'patient') tags.push({ tone: 'neutral', text: 'Bought by you' });
-  return { ...m, tags, requested };
+  return { ...m, tags, requested, form: medicineForm(m) };
 }
 
 function activeMedicines(state) {
@@ -295,7 +309,7 @@ const routes = [
       source: 'patient',
       addedOn: TODAY.toISOString().slice(0, 10),
       medication: name,
-      ...(fromList && { strength: `Contains ${picked.contains}`, ingredients: picked.ingredients }),
+      ...(fromList && { strength: `Contains ${picked.contains}`, ingredients: picked.ingredients, form: picked.form }),
       reason: values.reason ? `For ${values.reason.replace(/^for\s+/i, '')}` : '',
       dosageInstruction: values.dose,
     });
@@ -323,11 +337,11 @@ const routes = [
     return { redirect: `/medicines/${m.id}?requested=1` };
   }],
 
-  // Fake sign-in, wireframe "Connect to payer". Only payers with a patient lead anywhere.
+  // Fake sign-in, wireframe "Connect to payer" (now "Connect to data source"). Only payers with a patient lead anywhere.
   ['GET', '/connect', (s, p, q) => ({
     view: 'connect/index',
     locals: {
-      title: 'Connect to payer',
+      title: 'Connect to data source',
       payers: fhirConfig.payers,
       notice: q.reset === '1' ? 'The demo has been reset.' : q.signedOut === '1' ? 'You have signed out.' : null,
       resetError: q.resetError === '1',
