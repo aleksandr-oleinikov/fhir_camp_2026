@@ -1,0 +1,48 @@
+<%- include('../partials/head', { back: { href: '/appointments', label: 'All appointments' } }) %>
+<h1><%= appt.serviceType %></h1>
+
+<% if (!appt.upcoming) { %>
+  <p class="notice">This appointment has already happened.</p>
+<% } %>
+
+<dl class="facts">
+  <div>
+    <dt>When</dt>
+    <dd>
+      <strong><%= formatDate(appt.start) %> at <%= formatTime(appt.start) %></strong>
+      <% if (appt.minutesDuration) { %><br>About <%= appt.minutesDuration %> minutes<% } %>
+    </dd>
+  </div>
+  <div>
+    <dt>Where</dt>
+    <dd>
+      <%= appt.location.name %><br>
+      <% appt.location.address.forEach((line, i) => { %><%= line %><% if (i < appt.location.address.length - 1) { %><br><% } %><% }) %>
+    </dd>
+  </div>
+  <div>
+    <dt>Who you will see</dt>
+    <dd><%= appt.practitioner %></dd>
+  </div>
+</dl>
+
+<% if (appt.upcoming && appt.patientInstruction) { %>
+  <section class="panel panel-important" aria-labelledby="before">
+    <h2 id="before">Before you come</h2>
+    <p><%= appt.patientInstruction %></p>
+  </section>
+<% } %>
+
+<% if (appt.upcoming && appt.bring && appt.bring.length) { %>
+  <h2>What to bring</h2>
+  <ul class="bullets">
+    <% appt.bring.forEach(item => { %><li><%= item %></li><% }) %>
+  </ul>
+<% } %>
+
+<% if (appt.upcoming) { %>
+  <h2>Need to change or cancel?</h2>
+  <p>Call <%= appt.location.name %>. Please tell them as soon as you can, so someone else can have the appointment.</p>
+  <p><a class="button" href="tel:<%= appt.location.phone.replace(/\s/g, '') %>">Call <%= appt.location.phone %></a></p>
+<% } %>
+<%- include('../partials/foot') %>

@@ -1,0 +1,16 @@
+<%- include('../partials/head', { back: { href: '/', label: 'Home' } }) %>
+<h1>Test results</h1>
+<p class="lead">Tap a result to see what it means.</p>
+
+<ul class="list" role="list">
+  <% results.forEach(r => { %>
+    <li>
+      <a class="list-item" href="/results/<%= r.id %>">
+        <span class="list-title"><%= r.plainName %></span>
+        <span class="list-meta">Test taken <%= formatDate(r.effectiveDateTime) %></span>
+        <span class="tag tag-<%= r.statusInfo.tone %>"><%= r.statusInfo.label %></span>
+      </a>
+    </li>
+  <% }) %>
+</ul>
+<%- include('../partials/foot') %>

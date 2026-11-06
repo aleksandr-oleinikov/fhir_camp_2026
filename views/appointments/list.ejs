@@ -1,0 +1,35 @@
+<%- include('../partials/head', { back: { href: '/', label: 'Home' } }) %>
+<h1>Appointments</h1>
+
+<h2>Coming up</h2>
+<% if (upcoming.length) { %>
+  <ul class="list" role="list">
+    <% upcoming.forEach(a => { %>
+      <li>
+        <a class="list-item" href="/appointments/<%= a.id %>">
+          <span class="list-title"><%= a.serviceType %></span>
+          <span class="list-meta"><strong><%= formatDate(a.start) %> at <%= formatTime(a.start) %></strong></span>
+          <span class="list-meta"><%= a.location.name %></span>
+          <span class="tag tag-neutral"><%= relativeDay(a.start) %></span>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+<% } else { %>
+  <p>You have no upcoming appointments.</p>
+<% } %>
+
+<% if (past.length) { %>
+  <h2>Past appointments</h2>
+  <ul class="list" role="list">
+    <% past.forEach(a => { %>
+      <li>
+        <a class="list-item" href="/appointments/<%= a.id %>">
+          <span class="list-title"><%= a.serviceType %></span>
+          <span class="list-meta"><%= formatDate(a.start) %></span>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
+<%- include('../partials/foot') %>

@@ -1,0 +1,40 @@
+<%- include('../partials/head', { back: { href: '/results', label: 'All test results' } }) %>
+<h1><%= result.plainName %></h1>
+<p class="lead"><%= result.about %></p>
+
+<p><span class="tag tag-<%= result.statusInfo.tone %>"><%= result.statusInfo.label %></span></p>
+
+<% if (result.status === 'preliminary') { %>
+  <section class="panel">
+    <h2>We do not have this result yet</h2>
+    <p>Your test was taken on <%= formatDate(result.effectiveDateTime) %>. Results usually take up to 5 working days. We will show it here when it is ready.</p>
+  </section>
+<% } else { %>
+  <% if (result.clinicianNote) { %>
+    <section class="panel <%= result.statusInfo.tone === 'warn' ? 'panel-important' : '' %>" aria-labelledby="note">
+      <h2 id="note">What your doctor says</h2>
+      <p><%= result.clinicianNote %></p>
+    </section>
+  <% } %>
+
+  <dl class="facts">
+    <div>
+      <dt>Your result</dt>
+      <dd><strong><%= result.value %> <%= result.unit %></strong></dd>
+    </div>
+    <% if (result.range) { %>
+      <div>
+        <dt>Normal range</dt>
+        <dd><%= result.range %></dd>
+      </div>
+    <% } %>
+    <div>
+      <dt>Test taken</dt>
+      <dd><%= formatDate(result.effectiveDateTime) %></dd>
+    </div>
+  </dl>
+<% } %>
+
+<h2>Questions about this result?</h2>
+<p>Speak to your doctor's surgery. They can explain what it means for you.</p>
+<%- include('../partials/foot') %>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title><%= title %> – Your health</title>
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="site-name" href="/">Your health</a>
+    </div>
+  </header>
+  <main id="main" class="wrap" tabindex="-1">
+    <% if (typeof back !== 'undefined') { %>
+      <a class="back-link" href="<%= back.href %>"><span aria-hidden="true">←</span> <%= back.label %></a>
+    <% } %>

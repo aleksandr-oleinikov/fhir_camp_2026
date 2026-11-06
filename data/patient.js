@@ -1,0 +1,154 @@
+// Mock patient record. Resources are loosely shaped after FHIR R4
+// (Patient, Appointment, Observation, MedicationRequest) so a real
+// FHIR source can replace this file later. Only the fields the pages
+// use are included.
+
+module.exports = {
+  patient: {
+    resourceType: 'Patient',
+    id: 'p1',
+    name: [{ given: ['Sam'], family: 'Okafor' }],
+    birthDate: '1958-03-21',
+  },
+
+  appointments: [
+    {
+      resourceType: 'Appointment',
+      id: 'a1',
+      status: 'booked',
+      start: '2026-11-12T10:30:00',
+      minutesDuration: 20,
+      serviceType: 'Blood test',
+      practitioner: 'Nurse Priya Shah',
+      location: {
+        name: 'Riverside Health Centre',
+        address: ['14 Mill Lane', 'Leeds', 'LS2 7QT'],
+        phone: '0113 496 0000',
+      },
+      patientInstruction:
+        'Do not eat anything for 8 hours before your appointment. You can drink water.',
+      bring: ['A list of the medicines you take'],
+    },
+    {
+      resourceType: 'Appointment',
+      id: 'a2',
+      status: 'booked',
+      start: '2026-11-24T14:15:00',
+      minutesDuration: 30,
+      serviceType: 'Heart clinic',
+      practitioner: 'Dr Helen Marsh',
+      location: {
+        name: 'St James Hospital, Outpatients B',
+        address: ['Beckett Street', 'Leeds', 'LS9 7TF'],
+        phone: '0113 496 0123',
+      },
+      patientInstruction:
+        'Arrive 15 minutes early. Parking is limited, so allow extra time.',
+      bring: ['Your glasses or hearing aid if you use them', 'A list of questions you want to ask'],
+    },
+    {
+      resourceType: 'Appointment',
+      id: 'a3',
+      status: 'fulfilled',
+      start: '2026-10-02T09:00:00',
+      minutesDuration: 15,
+      serviceType: 'Medicine review',
+      practitioner: 'Pharmacist Tom Reid',
+      location: {
+        name: 'Riverside Health Centre',
+        address: ['14 Mill Lane', 'Leeds', 'LS2 7QT'],
+        phone: '0113 496 0000',
+      },
+    },
+  ],
+
+  observations: [
+    {
+      resourceType: 'Observation',
+      id: 'o1',
+      status: 'final',
+      code: 'Cholesterol',
+      plainName: 'Cholesterol',
+      about: 'Cholesterol is a fat in your blood. Too much can raise your risk of heart problems.',
+      effectiveDateTime: '2026-10-28',
+      value: 6.2,
+      unit: 'mmol/L',
+      referenceRange: { high: 5.0 },
+      interpretation: 'high',
+      clinicianNote:
+        'Slightly higher than we would like. We will talk about this at your heart clinic appointment on 24 November.',
+    },
+    {
+      resourceType: 'Observation',
+      id: 'o2',
+      status: 'final',
+      code: 'HbA1c',
+      plainName: 'Long-term blood sugar',
+      about: 'This shows your average blood sugar over the last 2 to 3 months.',
+      effectiveDateTime: '2026-10-28',
+      value: 39,
+      unit: 'mmol/mol',
+      referenceRange: { high: 42 },
+      interpretation: 'normal',
+      clinicianNote: 'This is normal. You do not need to do anything.',
+    },
+    {
+      resourceType: 'Observation',
+      id: 'o3',
+      status: 'final',
+      code: 'eGFR',
+      plainName: 'Kidney health',
+      about: 'This shows how well your kidneys are cleaning your blood.',
+      effectiveDateTime: '2026-10-28',
+      value: 78,
+      unit: 'mL/min',
+      referenceRange: { low: 60 },
+      interpretation: 'normal',
+      clinicianNote: 'Your kidneys are working well.',
+    },
+    {
+      resourceType: 'Observation',
+      id: 'o4',
+      status: 'preliminary',
+      code: 'FBC',
+      plainName: 'Full blood count',
+      about: 'This checks the different types of cells in your blood.',
+      effectiveDateTime: '2026-11-04',
+    },
+  ],
+
+  medications: [
+    {
+      resourceType: 'MedicationRequest',
+      id: 'm1',
+      status: 'active',
+      medication: 'Atorvastatin',
+      strength: '20mg tablets',
+      reason: 'To lower your cholesterol',
+      dosageInstruction: 'Take 1 tablet every evening.',
+      warning: 'Avoid drinking a lot of grapefruit juice while taking this medicine.',
+      repeat: { nextDue: '2026-11-18', remaining: 3 },
+    },
+    {
+      resourceType: 'MedicationRequest',
+      id: 'm2',
+      status: 'active',
+      medication: 'Ramipril',
+      strength: '5mg capsules',
+      reason: 'To lower your blood pressure',
+      dosageInstruction: 'Take 1 capsule every morning.',
+      warning: 'Tell your doctor if you get a dry cough that does not go away.',
+      repeat: { nextDue: '2026-11-09', remaining: 1 },
+    },
+    {
+      resourceType: 'MedicationRequest',
+      id: 'm3',
+      status: 'active',
+      medication: 'Paracetamol',
+      strength: '500mg tablets',
+      reason: 'For pain when you need it',
+      dosageInstruction:
+        'Take 1 or 2 tablets up to 4 times a day. Leave at least 4 hours between doses. Do not take more than 8 tablets in 24 hours.',
+    },
+  ],
+};

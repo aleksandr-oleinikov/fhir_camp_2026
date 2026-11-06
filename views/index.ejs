@@ -1,0 +1,44 @@
+<%- include('partials/head') %>
+<h1>Hello <%= patientName %></h1>
+<p class="lead">What would you like to do?</p>
+
+<ul class="cards" role="list">
+  <li>
+    <a class="card" href="/appointments">
+      <span class="card-title">Appointments</span>
+      <span class="card-text">
+        <% if (summary.nextAppointment) { %>
+          Next: <%= summary.nextAppointment.serviceType.toLowerCase() %>,
+          <%= formatDate(summary.nextAppointment.start) %>
+        <% } else { %>
+          You have no upcoming appointments
+        <% } %>
+      </span>
+    </a>
+  </li>
+  <li>
+    <a class="card" href="/results">
+      <span class="card-title">Test results</span>
+      <span class="card-text">
+        <% if (summary.resultsToCheck) { %>
+          <%= summary.resultsToCheck %> <%= summary.resultsToCheck === 1 ? 'result has' : 'results have' %> a note from your doctor
+        <% } else { %>
+          See your latest results
+        <% } %>
+      </span>
+    </a>
+  </li>
+  <li>
+    <a class="card" href="/medicines">
+      <span class="card-title">Medicines</span>
+      <span class="card-text">
+        <% if (summary.repeatsDue) { %>
+          <%= summary.repeatsDue %> repeat <%= summary.repeatsDue === 1 ? 'prescription' : 'prescriptions' %> due soon
+        <% } else { %>
+          See your medicines and order repeats
+        <% } %>
+      </span>
+    </a>
+  </li>
+</ul>
+<%- include('partials/foot') %>
