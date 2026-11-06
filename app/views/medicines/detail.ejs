@@ -29,9 +29,15 @@
     <dt>How to take it</dt>
     <dd><strong><%= med.dosageInstruction || 'Not given' %></strong></dd>
   </div>
+  <% if (med.lastSupply) { %>
+    <div>
+      <dt>Last collected</dt>
+      <dd><%= formatDate(med.lastSupply.date) %>: <%= med.lastSupply.quantity %> <%= med.lastSupply.unit %>, to last <%= med.lastSupply.days %> days</dd>
+    </div>
+  <% } %>
   <div>
     <dt><%= med.source === 'patient' ? 'Added by' : 'Prescribed by' %></dt>
-    <dd><%= med.source === 'patient' ? `You, on ${formatDate(med.addedOn)}` : med.requester %></dd>
+    <dd><%= med.source === 'patient' ? (med.addedOn ? `You, on ${formatDate(med.addedOn)}` : 'You') : (med.requester || 'Your doctor') %></dd>
   </div>
 </dl>
 
@@ -55,7 +61,7 @@
     <p>You have already asked for a repeat of this medicine.</p>
   <% } else { %>
     <p>Your next repeat is due <strong><%= formatDate(med.repeat.nextDue) %></strong>.
-      You have <%= med.repeat.remaining %> <%= med.repeat.remaining === 1 ? 'repeat' : 'repeats' %> left before your doctor needs to review it.</p>
+      <% if (med.repeat.remaining != null) { %>You have <%= med.repeat.remaining %> <%= med.repeat.remaining === 1 ? 'repeat' : 'repeats' %> left before your doctor needs to review it.<% } %></p>
     <form method="post" action="/medicines/<%= med.id %>/repeat">
       <button class="button" type="submit">Request a repeat</button>
     </form>

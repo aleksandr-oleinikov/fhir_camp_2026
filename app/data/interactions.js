@@ -1,6 +1,7 @@
 // Mock interaction rules. A conflict shows when both medicines are on the
-// patient's active list. Matching is on the first word of the medicine name,
-// case-insensitive. In production this would come from a clinical
+// patient's active list. Matching is on active ingredients (lower case, UK
+// names), or the first word of the name when ingredients are not known.
+// A rule that names the same ingredient twice catches doubling up. In production this would come from a clinical
 // interaction checker, and the wording must be signed off clinically.
 
 module.exports = [
@@ -71,6 +72,48 @@ module.exports = [
       'Keep taking ramipril.',
       'Do not take any more naproxen until you have spoken to a pharmacist or your doctor.',
       'Ask them which painkiller is safe for you instead.',
+    ],
+  },
+  {
+    id: 'lisinopril-ibuprofen',
+    severity: 2,
+    medicines: ['lisinopril', 'ibuprofen'],
+    summary:
+      'These 2 medicines interact. Talk to your doctor or a pharmacist about finding a different painkiller.',
+    whatCouldHappen:
+      'Ibuprofen can stop lisinopril lowering your blood pressure as well as it should. Taking them together can also harm your kidneys.',
+    whatToDo: [
+      'Keep taking lisinopril.',
+      'Do not take any more ibuprofen until you have spoken to a pharmacist or your doctor.',
+      'Ask them which painkiller is safe for you instead.',
+    ],
+  },
+  {
+    id: 'lisinopril-naproxen',
+    severity: 2,
+    medicines: ['lisinopril', 'naproxen'],
+    summary:
+      'These 2 medicines interact. Talk to your doctor or a pharmacist about finding a different painkiller.',
+    whatCouldHappen:
+      'Naproxen can stop lisinopril lowering your blood pressure as well as it should. Taking them together can also harm your kidneys.',
+    whatToDo: [
+      'Keep taking lisinopril.',
+      'Do not take any more naproxen until you have spoken to a pharmacist or your doctor.',
+      'Ask them which painkiller is safe for you instead.',
+    ],
+  },
+  {
+    id: 'paracetamol-paracetamol',
+    severity: 3,
+    medicines: ['paracetamol', 'paracetamol'],
+    summary:
+      'Both of these contain paracetamol. Taking them together could mean taking too much paracetamol.',
+    whatCouldHappen:
+      'Too much paracetamol can seriously damage your liver. You may not feel ill at first.',
+    whatToDo: [
+      'Do not take these 2 medicines together.',
+      'Ask a pharmacist which one to take, and how much.',
+      'If you think you have taken too much paracetamol, go to A&E straight away, even if you feel well.',
     ],
   },
 ];

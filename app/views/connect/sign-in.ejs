@@ -1,0 +1,32 @@
+<%- include('../partials/head', { signedIn: false, back: { href: '/connect', label: 'Choose a different payer' } }) %>
+
+<% if (errors) { %>
+  <div class="error-summary" role="alert" aria-labelledby="error-title" tabindex="-1">
+    <h2 id="error-title">There is a problem</h2>
+    <ul role="list">
+      <% Object.entries(errors).forEach(([field, msg]) => { %>
+        <li><a href="#<%= field %>"><%= msg %></a></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<h1>Sign in to <%= payer.name %></h1>
+<% if (payer.detail) { %><p class="lead"><%= payer.detail %></p><% } %>
+
+<form method="post" action="/connect/<%= payer.id %>" novalidate>
+  <% [['username', 'Username', 'text'], ['password', 'Password', 'password']].forEach(([field, label, type]) => { %>
+    <div class="field <%= errors && errors[field] ? 'field-error' : '' %>">
+      <label for="<%= field %>"><%= label %></label>
+      <% if (errors && errors[field]) { %>
+        <p class="error-message" id="<%= field %>-error"><span class="visually-hidden">Error: </span><%= errors[field] %></p>
+      <% } %>
+      <input id="<%= field %>" name="<%= field %>" type="<%= type %>" autocomplete="off" spellcheck="false"
+        <% if (field === 'username') { %>value="<%= values.username || '' %>"<% } %>
+        <% if (errors && errors[field]) { %>aria-invalid="true" aria-describedby="<%= field %>-error"<% } %>>
+    </div>
+  <% }) %>
+  <button class="button" type="submit">Sign in</button>
+</form>
+<p class="hint">This is a demo: any username and password will work.</p>
+<%- include('../partials/foot') %>

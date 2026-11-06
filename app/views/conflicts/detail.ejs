@@ -8,7 +8,7 @@
     <li class="pair-item">
       <span class="pair-name"><%= m.medication %></span>
       <% if (m.strength) { %><span class="pair-meta"><%= m.strength %></span><% } %>
-      <span class="pair-meta"><%= m.source === 'patient' ? 'Bought by you' : 'From ' + m.requester %></span>
+      <span class="pair-meta"><%= m.source === 'patient' ? 'Bought by you' : 'From ' + (m.requester || 'your doctor') %></span>
       <a href="/medicines/<%= m.id %>">More about <%= m.medication.toLowerCase() %></a>
     </li>
     <% if (i === 0) { %><li class="pair-join" aria-hidden="true">+</li><% } %>

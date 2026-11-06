@@ -1,6 +1,13 @@
 <%- include('partials/head') %>
 <h1>Hi <%= patientName %>!</h1>
 
+<% if (loadError) { %>
+  <div class="panel panel-important" role="alert">
+    <h2>We could not reach your record</h2>
+    <p>The list below may be out of date. Try "Update my list" in a moment.</p>
+  </div>
+<% } %>
+
 <% if (notice) { %>
   <div class="panel panel-success" role="status"><p><%= notice %></p></div>
 <% } %>

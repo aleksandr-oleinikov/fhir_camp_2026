@@ -1,12 +1,13 @@
 // In-browser runtime for the static demo. Uses the same lib/core.js as the
 // Express server; templates are precompiled by build.js into ./templates.
 // Pages are addressed by hash (#/medicines/m1) so any static host works,
-// and demo changes are saved in this browser only.
+// and demo state is saved in this browser. Medicines are read from, and
+// added to, the FHIR server named in data/fhir-config.js.
 
 const { createState, handle } = require('../lib/core');
 const templates = require('../build/templates');
 
-const STORAGE_KEY = 'medicines-demo-state-v1';
+const STORAGE_KEY = 'medicines-demo-state-v2';
 
 // ---- State -------------------------------------------------------------
 function loadState() {
@@ -52,18 +53,17 @@ function currentUrl() {
 // so the browser Back button still works.
 function go(path) {
   if (location.hash !== '#' + path) history.pushState(null, '', '#' + path);
-  show(true);
+  return show(true);
 }
 
-function request(method, url, body) {
-  if (method === 'POST' && url.pathname === '/demo/reset') {
-    state = createState();
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
-    return { redirect: '/?reset=1' };
-  }
+// Requests can wait on the FHIR server; only the latest one gets painted.
+let latest = 0;
+
+async function request(method, url, body) {
   const query = Object.fromEntries(url.searchParams);
-  const result = handle(state, method, url.pathname, query, body);
-  if (method === 'POST') saveState();
+  const wasLoaded = state.loaded;
+  const result = await handle(state, method, url.pathname, query, body);
+  if (method === 'POST' || !wasLoaded) saveState();
   return result;
 }
 
@@ -79,8 +79,10 @@ function paint(result, moveFocus) {
   }
 }
 
-function show(moveFocus = true) {
-  const result = request('GET', currentUrl());
+async function show(moveFocus = true) {
+  const ticket = ++latest;
+  const result = await request('GET', currentUrl());
+  if (ticket !== latest) return;
   if (result.redirect) return location.replace('#' + result.redirect);
   paint(result, moveFocus);
 }
@@ -106,19 +108,29 @@ document.addEventListener('click', (e) => {
   }
 });
 
-document.addEventListener('submit', (e) => {
+document.addEventListener('submit', async (e) => {
   const form = e.target;
   const action = form.getAttribute('action') || '';
   if (!action.startsWith('/')) return;
   e.preventDefault();
+  if (form.getAttribute('aria-busy') === 'true') return; // already sending
+  form.setAttribute('aria-busy', 'true');
+  const button = form.querySelector('button[type=submit], button:not([type])');
+  if (button) { button.disabled = true; button.dataset.label = button.textContent; button.lastChild.textContent = ' Please wait…'; }
   const method = (form.getAttribute('method') || 'get').toUpperCase();
   const body = Object.fromEntries(new FormData(form));
-  const result = request(method, new URL(action, 'http://demo.local'), body);
+  const ticket = ++latest;
+  const result = await request(method, new URL(action, 'http://demo.local'), body);
+  if (ticket !== latest) return;
   if (result.redirect) go(result.redirect);
   else paint(result, true); // e.g. a form error, shown without changing the address
 });
 
 window.addEventListener('popstate', () => show(true));
 window.addEventListener('hashchange', () => show(true)); // address typed or edited by hand
-if (document.body) show(false);
-else document.addEventListener('DOMContentLoaded', () => show(false));
+function start() {
+  if (!state.loaded) document.body.innerHTML = '<p class="loading" role="status">Loading your record…</p>';
+  show(false);
+}
+if (document.body) start();
+else document.addEventListener('DOMContentLoaded', start);

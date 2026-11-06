@@ -1,0 +1,30 @@
+<%- include('../partials/head', { signedIn: false }) %>
+
+<% if (notice) { %>
+  <div class="panel panel-success" role="status"><p><%= notice %></p></div>
+<% } %>
+<% if (resetError) { %>
+  <div class="panel panel-important" role="alert"><p>We could not remove the medicines added during the demo from the test server. They may still show next time.</p></div>
+<% } %>
+
+<h1>Connect to payer</h1>
+<p class="lead">Choose where your medicines and health records are kept.</p>
+
+<ul class="payers" role="list">
+  <% payers.forEach(p => { %>
+    <li>
+      <% if (p.patientId) { %>
+        <a class="payer" href="/connect/<%= p.id %>">
+          <span class="payer-name"><%= p.name %></span>
+          <% if (p.detail) { %><span class="payer-detail">(<%= p.detail %>)</span><% } %>
+        </a>
+      <% } else { %>
+        <button class="payer" type="button" aria-disabled="true">
+          <span class="payer-name"><%= p.name %></span>
+          <span class="visually-hidden">(not available in this demo)</span>
+        </button>
+      <% } %>
+    </li>
+  <% }) %>
+</ul>
+<%- include('../partials/foot') %>
