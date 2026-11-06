@@ -1,17 +1,15 @@
 # Drug interaction checks: backend
 
-When the UI ([demo](https://aleksandr-oleinikov.github.io/fhir_camp_2026/)) asks, the service reads the patient's active medicines from Aidbox, sends their RxNorm codes straight to Scholz DataBank and returns the pairs that may not mix well. Three Scholz functions cover it: a lookup per medicine, one interaction check for the whole list, and the full text when the user opens an alert.
+When the UI ([demo](https://aleksandr-oleinikov.github.io/fhir_camp_2026/)) asks, the service reads the patient's pharmacy claims (`ExplanationOfBenefit`) from Aidbox, keeps the medicines the patient takes on a given date, turns their NDC codes into RxNorm codes with RxNav, checks the whole list in Scholz DataBank and returns the pairs that may not mix well.
 
 ## 1. Input
 
 | Call | What it does |
 | --- | --- |
-| `GET /patients/{id}/interactions` | Checks the patient's current medicines |
+| `GET /patients/{id}/interactions?asOf=YYYY-MM-DD` | Checks the medicines current on `asOf`; defaults to today. The claims in the hackathon Aidbox end on 2024-12-18, so the demo passes `asOf` |
 | `GET /patients/{id}/interactions/{interactionCode}` | Full text for one interaction, when the user opens the alert |
 
-What has to be in Aidbox: every medicine is an active `MedicationRequest` (prescribed) or `MedicationStatement` (bought by the patient and added in the UI) with an RxNorm code at drug level, for example `314076` "lisinopril 10 MG Oral Tablet". The code sits in `medicationCodeableConcept` or in the `code` of the referenced `Medication`. The mock list in `app/data/patient.js` has names only, so the codes are added when it moves to Aidbox.
-
-Environment variables: `AIDBOX_URL`, `AIDBOX_CLIENT_ID`, `AIDBOX_CLIENT_SECRET`, `SCHOLZ_UCI`.
+Environment variables: `AIDBOX_URL`, `AIDBOX_TOKEN` (bearer token), `SCHOLZ_UCI`.
 
 ## 2. Steps
 
@@ -22,46 +20,63 @@ sequenceDiagram
     participant UI
     participant BE as Backend
     participant AB as Aidbox
+    participant RX as RxNav
     participant SDB as Scholz DataBank
 
-    UI->>BE: GET /patients/{id}/interactions
-    BE->>AB: GET MedicationRequest and MedicationStatement, status=active (step 1)
-    AB-->>BE: medicines with RxNorm codes (step 2)
-    loop each RxCUI not in cache (step 3)
-        BE->>SDB: GET distinctdrugsbyrxcui/{UCI}/{rxcui}
-        SDB-->>BE: DrugCode, or ErrorCode 2 (goes to notChecked)
+    UI->>BE: GET /patients/{id}/interactions?asOf=...
+    BE->>AB: GET ExplanationOfBenefit?patient=Patient/{id} (step 1)
+    AB-->>BE: pharmacy EOBs with NDC, servicedDate, dayssupply
+    Note over BE: steps 2-3: keep fills current on asOf
+    loop each current NDC (step 4)
+        BE->>RX: GET ndcstatus.json?ndc={ndc}
+        RX-->>BE: rxcui, also for NDCs off the market
     end
-    BE->>SDB: GET interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},... (step 4)
-    SDB-->>BE: ErrorCode and InteractionListEx (steps 5-6)
-    BE->>AB: PUT DetectedIssue?identifier=... per pair, cancel stale ones (step 7)
+    loop each RxCUI not in cache (step 5)
+        BE->>SDB: GET distinctdrugsbyrxcui/{UCI}/{rxcui}
+        SDB-->>BE: DrugCode, or not known (goes to notChecked)
+    end
+    BE->>SDB: GET interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},... (step 6)
+    SDB-->>BE: ErrorCode and InteractionListEx (steps 7-8)
+    BE->>AB: PUT DetectedIssue?identifier=... per pair, cancel stale ones (step 9)
     BE-->>UI: medicines, conflicts, notChecked
 
     UI->>BE: GET /patients/{id}/interactions/{interactionCode}
-    BE->>SDB: GET interactionfulltext/{UCI}/{InteractionCcode} (step 8)
+    BE->>SDB: GET interactionfulltext/{UCI}/{InteractionCcode} (step 10)
     SDB-->>BE: Mechanism, Management
     BE-->>UI: full text
 ```
 
-1. **Medicines from Aidbox.** `GET {AIDBOX_URL}/fhir/MedicationRequest?subject=Patient/{id}&status=active&_include=MedicationRequest:medication&_count=100` and the same for `MedicationStatement` with `_include=MedicationStatement:medication`. Follow `link` with `relation = next`.
-2. **RxCUI.** Take the coding with system `http://www.nlm.nih.gov/research/umls/rxnorm` from `medicationCodeableConcept`, or from the included `Medication.code`. A medicine without an RxNorm coding goes into `notChecked`. The same RxCUI from two resources (prescribed and also bought) is one medicine; keep both resources for `implicated`.
-3. **Lookup in Scholz.** `GET {SDB}/distinctdrugsbyrxcui/{UCI}/{rxcui}`. On `ErrorCode = 1`, keep `DrugList[0].DrugCode` (a Scholz code such as `Y23723`) and `DrugName`. On `ErrorCode = 2`, the medicine goes into `notChecked`. This catches RxCUIs Scholz does not know and ingredient-level RxCUIs such as `36567` (simvastatin). The step is required: the interaction check answers an unknown RxCUI with `ErrorCode = 2`, meaning "no interactions", which is a false answer. The lookup takes one RxCUI per call (a list returns `ErrorCode = 8`), so keep a cache by RxCUI.
-4. **Check.** If 2 or more medicines passed step 3: `GET {SDB}/interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},...` with all of them. The function name is spelled exactly like this, with the `s`.
-5. **Status.** HTTP is always 200; `ResponseStatus.ErrorCode` decides the result: `1` means interactions found, `2` means none, `8` means bad input or no access. On `8` and on a network error the service writes nothing and returns `502` to the UI, not an empty list.
-6. **Parsing `InteractionListEx`.**
-   * The pair's members are the non-empty `DrugCode1..4`. They are matched to the patient's medicines by the `DrugCode` from step 3.
+1. **Claims from Aidbox.** `GET {AIDBOX_URL}/fhir/ExplanationOfBenefit?patient=Patient/{id}&_count=100` with `Authorization: Bearer {AIDBOX_TOKEN}`, then follow `link` with `relation = next`. In code, keep EOBs whose `type.coding` has `http://terminology.hl7.org/CodeSystem/claim-type` with code `pharmacy` and whose `status` is neither `cancelled` nor `entered-in-error`.
+2. **Fills.** From each `item` take:
+   * the NDC from `productOrService.coding` with system `http://hl7.org/fhir/sid/ndc` (11 digits);
+   * the fill date, `servicedDate`;
+   * the days supply from the `supportingInfo` entry with `category.coding.code = dayssupply`, field `valueQuantity.value`.
+3. **Current medicines.** A fill is current if `servicedDate <= asOf < servicedDate + daysSupply`. Fills of the same medicine collapse by RxCUI (step 4); the latest one goes into the response.
+4. **NDC to RxCUI.** `GET https://rxnav.nlm.nih.gov/REST/ndcstatus.json?ndc={ndc}`, field `ndcStatus.rxcui`. RxNav keeps the history of NDCs that are off the market and returns the RxCUI they belonged to: `58016096369` (status `OBSOLETE`) gives `314076`, "lisinopril 10 MG Oral Tablet". If the status is `UNKNOWN` or `rxcui` is empty, the medicine goes into `notChecked`.
+   * Why not send NDCs to Scholz directly: Scholz finds only NDCs that are still on the market. It knows 7 of the 21 NDCs in this patient's claims, and among the medicines current on 2024-12-18 it does not know lisinopril and Pulmozyme. An unknown NDC in the check gives no error, only "no interactions".
+   * Why not `rxcui.json?idtype=NDC`: it returns nothing for NDCs that are off the market.
+5. **Lookup in Scholz.** `GET {SDB}/distinctdrugsbyrxcui/{UCI}/{rxcui}`. On `ErrorCode = 1`, keep `DrugList[0].DrugCode` (a Scholz code such as `Y23723`) and `DrugName`. On `ErrorCode = 2`, or `8` with the message "Entered RXCUI is not valid", Scholz does not know the code and the medicine goes into `notChecked`. This catches unknown and ingredient-level RxCUIs, so no RxNav check of the code level is needed. The step is required: the interaction check answers an unknown RxCUI with `ErrorCode = 2`, meaning "no interactions", which is a false answer. The lookup takes one RxCUI per call (a list returns `ErrorCode = 8`), so keep a cache by RxCUI.
+6. **Check.** If 2 or more medicines passed step 5: `GET {SDB}/interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},...` with all of them. The function name is spelled exactly like this, with the `s`.
+7. **Status.** HTTP is always 200; `ResponseStatus.ErrorCode` decides the result: `1` means interactions found, `2` means none, `8` means bad input or no access. On `8` and on a network error the service writes nothing and returns `502` to the UI, not an empty list.
+8. **Parsing `InteractionListEx`.**
+   * The pair's members are the non-empty `DrugCode1..4`. They are matched to the patient's medicines by the `DrugCode` from step 5.
    * One pair can come back as several rows (different frequency, dose thresholds). Rows are grouped by `InteractionCcode` and the set of `DrugCode`s; the row with the highest `severity` stays.
+   * Two medicines with the same ingredient (for example Zestril and generic lisinopril) come back as a duplicate-therapy row: `InteractionCcode` `11111111`, `EffLong` "same drugs in medication". Their interactions with other medicines are reported under only one of the two.
    * `severity` for the UI: `TrafficLightColor` `red` → 3, `yellow` → 2, any other non-empty color except `green` → 1. The color can be empty; then use `Relevance`: 5 → 3, 4 → 2, 3 → 1. `Relevance` 1 and 2 and the color `green` are not shown.
-7. **Writing to Aidbox.** Each pair in `conflicts` is written as a `DetectedIssue` (section 4) with a conditional update: `PUT {AIDBOX_URL}/fhir/DetectedIssue?identifier=urn:fhir-camp-2026:scholz-interaction|{id}-{InteractionCcode}`. A repeat check updates the record instead of creating a duplicate. This patient's `DetectedIssue`s with status `final` that are missing from the new result are set to `cancelled`.
-8. **Full text.** `GET {SDB}/interactionfulltext/{UCI}/{InteractionCcode}` is called only from the second route. `InteractionFullTextList[0].Mechanism` and `.Management` come as arrays of strings; `$` in the text is a line break, `$$` a new paragraph.
+9. **Writing to Aidbox.** Each pair in `conflicts` is written as a `DetectedIssue` (section 4) with a conditional update: `PUT {AIDBOX_URL}/fhir/DetectedIssue?identifier=urn:fhir-camp-2026:scholz-interaction|{id}-{InteractionCcode}`. A repeat check updates the record instead of creating a duplicate. This patient's `DetectedIssue`s with status `final` that are missing from the new result are set to `cancelled`.
+10. **Full text.** `GET {SDB}/interactionfulltext/{UCI}/{InteractionCcode}` is called only from the second route. `InteractionFullTextList[0].Mechanism` and `.Management` come as arrays of strings; `$` in the text is a line break, `$$` a new paragraph.
+
+If the patient also has active `MedicationRequest` or `MedicationStatement` resources with RxNorm codes, they join the list at step 5: `GET {AIDBOX_URL}/fhir/MedicationRequest?subject=Patient/{id}&status=active&_include=MedicationRequest:medication` (the same for `MedicationStatement`). A `Medication` can carry several RxNorm codes at different levels; try them in the step 5 lookup and keep the first one Scholz knows. In the hackathon Aidbox the only `MedicationRequest` belongs to the other patient, and of its six RxNorm codes Scholz knows only `748798`, the pack (`GPCK`).
 
 ## 3. Cases
 
-| Case | What Scholz returns | What the backend does |
+| Case | What Scholz or RxNav returns | What the backend does |
 | --- | --- | --- |
 | No interactions | `ErrorCode = 2`, empty list | `conflicts: []`; older `DetectedIssue`s are set to `cancelled` |
-| RxCUI unknown to Scholz | Lookup: `ErrorCode = 2`. Check: no error, `ErrorCode = 2`, as if there were no interactions | Caught at step 3, medicine in `notChecked` |
-| Ingredient-level RxCUI | Lookup: `ErrorCode = 2`. Check: `ErrorCode = 8`, "Entered RXCUI is not valid" | Caught at step 3, medicine in `notChecked` |
-| Medicine without an RxNorm code | Not sent | Medicine in `notChecked` with reason `no RxNorm code` |
+| NDC off the market | RxNav: `OBSOLETE` with an RxCUI | Use that RxCUI |
+| NDC unknown to RxNav | RxNav: `UNKNOWN`, empty RxCUI | Medicine in `notChecked`; example: `00427080094` |
+| RxCUI unknown to Scholz | Lookup: `ErrorCode = 2`. Check: no error, `ErrorCode = 2`, as if there were no interactions | Caught at step 5, medicine in `notChecked` |
+| Ingredient-level RxCUI | Lookup: `ErrorCode = 2` or `8` ("Entered RXCUI is not valid"). Check: `ErrorCode = 8` | Caught at step 5, medicine in `notChecked` |
 | Empty `TrafficLightColor` | `""` | `severity` from `Relevance` |
 | Key has no access | `ErrorCode = 8`, "Entered UCI doesn't have privileges" | `502`, reason in the log |
 | Network error or timeout | No response | `502`, nothing written to Aidbox |
@@ -74,8 +89,9 @@ Response of the first route:
 ```json
 {
   "patient": "Patient/{id}",
+  "asOf": "2024-12-18",
   "medicines": [
-    { "rxcui": "314076", "name": "lisinopril 10 MG Oral Tablet", "drugCode": "Y23723", "sources": ["MedicationRequest/{id}"] }
+    { "rxcui": "314076", "name": "lisinopril 10 MG Oral Tablet", "drugCode": "Y23723", "lastFill": "2024-11-18", "daysSupply": 90, "sources": ["ExplanationOfBenefit/{eobId}"] }
   ],
   "conflicts": [
     {
@@ -87,7 +103,7 @@ Response of the first route:
       "detectedIssue": "DetectedIssue/{diId}"
     }
   ],
-  "notChecked": [{ "source": "MedicationStatement/{id}", "name": "Ibuprofen", "reason": "no RxNorm code" }]
+  "notChecked": [{ "ndc": "00427080094", "reason": "NDC unknown to RxNorm" }]
 }
 ```
 
@@ -103,12 +119,12 @@ Response of the first route:
 | `severity` | 3 → `high`, 2 → `moderate`, 1 → `low` |
 | `patient` | `Patient/{id}` |
 | `identifiedDateTime` | time of the check |
-| `implicated` | the `MedicationRequest` and `MedicationStatement` resources of each medicine in the pair |
+| `implicated` | for each medicine in the pair, the `ExplanationOfBenefit` of its latest fill, or its `MedicationRequest` or `MedicationStatement` |
 | `detail` | `EffLong` and `whatToDo` joined with ` \| ` |
 
-## 5. Key and limits
+## 5. Keys and limits
 
-* The UCI (Scholz customer key) goes straight into the URL path. It is read from `SCHOLZ_UCI` and replaced with `***` in logs. This repository is public: never commit the key or Aidbox secrets.
+* The UCI (Scholz customer key) goes straight into the URL path. It is read from `SCHOLZ_UCI` and replaced with `***` in logs. The Aidbox token is read from `AIDBOX_TOKEN`. This repository is public: never commit either.
 * Scholz calls go over `https` only.
 * URL length: 30 RxCUIs (324 characters) pass, 40 RxCUIs (394 characters) return HTTP 400.
 
@@ -116,16 +132,21 @@ Response of the first route:
 
 | Request | Expected result |
 | --- | --- |
-| `distinctdrugsbyrxcui/{UCI}/314076` | `ErrorCode = 1`, `DrugCode` `Y23723`, "lisinopril 10 MG Oral Tablet" |
+| `GET /patients/-10000010254618/interactions?asOf=2024-12-18` (hackathon Aidbox) | Current fills `27808011402`, `55154010000`, `58016096369` → RxCUIs `856987`, `205532`, `314076` (hydrocodone/acetaminophen, Pulmozyme, lisinopril); all known to Scholz; `conflicts: []` |
+| RxNav `ndcstatus.json?ndc=58016096369` | `OBSOLETE`, `rxcui` `314076` |
+| `distinctdrugsbyrxcui/{UCI}/314076` | `ErrorCode = 1`, `DrugCode` `Y23723` |
 | `distinctdrugsbyrxcui/{UCI}/36567` (ingredient-level simvastatin) | `ErrorCode = 2` |
-| `interactionsbyrxcuisex/{UCI}/198211,197853` (simvastatin 40 mg + ketoconazole 200 mg) | 1 pair, `red`, `Relevance` 5, `CombiStatus` 1 (contraindication) |
 | `interactionsbyrxcuisex/{UCI}/314076,849574` (lisinopril 10 mg + naproxen sodium 220 mg) | 1 pair, `yellow`, `Relevance` 4, `InteractionCcode` 38010552 |
-| `interactionsbyrxcuisex/{UCI}/856987,205532,314076` (hydrocodone/acetaminophen, Pulmozyme, lisinopril) | `ErrorCode = 2`, no interactions |
-| `interactionsbyrxcuisex/{UCI}/8888888,310965` (a made-up RxCUI + ibuprofen 200 mg) | `ErrorCode = 2`, no error for the made-up code |
+| `interactionsbyndccodesex/{UCI}/54458099710,68115025030` (the same two drugs by NDCs off the market) | `ErrorCode = 2`, no interactions: the reason step 4 goes through RxNav |
+| `interactionsbyrxcuisex/{UCI}/198211,197853` (simvastatin 40 mg + ketoconazole 200 mg) | 1 pair, `red`, `Relevance` 5, `CombiStatus` 1 (contraindication) |
+
+The hackathon patient has no interacting pair on any date: the interaction Scholz finds across all the claims, lisinopril (generic or Zestril) + naproxen, never overlaps in time (naproxen was filled once in March 2015, lisinopril from 2020 on). Showing a conflict in the demo needs claims with two interacting medicines filled at the same time.
 
 ## Sources
 
 * FHIR R4, DetectedIssue: <https://hl7.org/fhir/R4/detectedissue.html>. `status`: "registered | preliminary | final | amended +"; `severity`: "high | moderate | low".
 * HL7 Terminology, v3 ActCode: <https://terminology.hl7.org/CodeSystem-v3-ActCode.json>. Code `DRG`: "Drug Interaction Alert".
+* CARIN Blue Button 2.0.0, Pharmacy EOB: <https://hl7.org/fhir/us/carin-bb/STU2/StructureDefinition-C4BB-ExplanationOfBenefit-Pharmacy.html>. `item.productOrService` is required, with a required binding to the NDC-or-compound value set (`FDANDCOrCompound`); the `supportingInfo:dayssupply` slice is required, with a `Quantity` value.
+* RxNav, getNDCStatus: <https://lhncbc.nlm.nih.gov/RxNav/APIs/api-RxNorm.getNDCStatus.html>. "OBSOLETE The NDC previously existed in RxNorm, but is no longer recognized as active. The history data will indicate the time periods and RxCUI(s) associated with the NDC."
 * FHIR R4, search parameters: <https://hl7.org/fhir/R4/search-parameters.json>. `subject`: "MedicationRequest.subject", "MedicationStatement.subject"; `status`: "MedicationRequest.status | MedicationStatement.status"; `medication`: "(MedicationRequest.medication as Reference)".
 * Scholz DataBank, function list: <https://rest.scholzdatabank.com/ditwebservices/default.htm>. "interactionsbyrxcuisex/1234567890/198211,897649", "distinctdrugsbyrxcui/1234567890/198032", "interactionfulltext/1234567890/40010501".
