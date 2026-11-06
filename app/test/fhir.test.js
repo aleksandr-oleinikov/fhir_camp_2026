@@ -44,6 +44,11 @@ test('Medicare pharmacy claims become current medicines, one per drug', () => {
 test('MedicationStatement written back is tagged and readable again', () => {
   const s = toMedicationStatement({ name: 'Advil', reason: 'back pain', dose: '' }, MEDICARE, new Date('2026-11-06T10:00:00Z'));
   assert.deepEqual(s.meta.tag, [DEMO_TAG]);
+  assert.deepEqual(s.medicationCodeableConcept, {
+    coding: [{ system: 'http://www.nlm.nih.gov/research/umls/rxnorm', code: '310965', display: 'ibuprofen 200 MG Oral Tablet' }],
+    text: 'Advil',
+  }, 'a medicine from the list is saved with its RxNorm code');
+  assert.deepEqual(toMedicationStatement({ name: 'Nurofen' }, MEDICARE, new Date()).medicationCodeableConcept, { text: 'Nurofen' }, 'a typed name has no code');
   assert.equal(s.subject.reference, `Patient/${MEDICARE}`);
   assert.equal(s.dosage, undefined, 'empty answers are left out');
 

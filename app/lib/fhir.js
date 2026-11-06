@@ -13,6 +13,13 @@ const { drugs, ndc } = require('../data/drug-codes');
 // Every resource the demo writes carries this tag, so a reset can find and
 // delete them without touching the original data.
 const DEMO_TAG = { system: 'urn:fhir-camp-demo', code: 'added-by-patient' };
+const RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
+
+// MedicationStatements made from pharmacy claims (lib/claim-statements.js)
+// carry this tag. They are the claim medicines again, in the shape the drug
+// interaction check reads, so they are not listed a second time.
+const CLAIMS_TAG = { system: 'urn:fhir-camp-demo', code: 'derived-from-claims' };
+const hasTag = (r, tag) => ((r.meta && r.meta.tag) || []).some((t) => t.system === tag.system && t.code === tag.code);
 
 // Record dates are years old. They are shifted so the latest one lands this
 // many days before "today", and claims count as current if their supply ran
@@ -28,7 +35,10 @@ class FhirError extends Error {
 }
 
 // ---- Server access -----------------------------------------------------
+// config.client, when given, is used instead of the bearer-token access
+// below. The local server passes one that talks to Aidbox.
 function connect(config) {
+  if (config.client) return config.client;
   const base = config.baseUrl.replace(/\/$/, '');
   async function call(method, path, body) {
     let res;
@@ -71,7 +81,7 @@ async function loadRecord(config, patientId, today) {
 // Saves a medicine the patient added. Returns it in the shape the pages use.
 async function addMedicine(config, patientId, input, now = new Date()) {
   const created = await connect(config).call('POST', 'MedicationStatement', toMedicationStatement(input, patientId, now));
-  return fromStatement(created);
+  return fromStatement(created, config.practice);
 }
 
 // Deletes everything the demo added for this patient. Returns how many.
@@ -82,13 +92,19 @@ async function removeDemoAdditions(config, patientId) {
   return added.length;
 }
 
+// A medicine from the over-the-counter list is saved with its RxNorm code, so
+// the drug interaction check can use it. A typed name has no code.
 function toMedicationStatement({ name, reason, dose }, patientId, now) {
   const patient = { reference: `Patient/${patientId}` };
+  const picked = otc.find((o) => o.name.toLowerCase() === name.toLowerCase());
   return {
     resourceType: 'MedicationStatement',
     meta: { tag: [DEMO_TAG] },
     status: 'active',
-    medicationCodeableConcept: { text: name },
+    medicationCodeableConcept: {
+      ...(picked && picked.rxcui && { coding: [{ system: RXNORM, code: picked.rxcui, display: picked.rxnorm }] }),
+      text: name,
+    },
     subject: patient,
     dateAsserted: now.toISOString(),
     informationSource: patient,
@@ -144,6 +160,7 @@ function fromRequest(r, medicationsById, practice, shift) {
   return {
     resourceType: 'MedicationRequest',
     id: `mr-${r.id}`,
+    refs: [`MedicationRequest/${r.id}`],
     status: 'active',
     source: 'record',
     medication: name,
@@ -161,26 +178,41 @@ function fromRequest(r, medicationsById, practice, shift) {
 
 const isPharmacyClaim = (e) => ((e.type && e.type.coding) || []).some((c) => c.code === 'pharmacy' || c.code === 'PDE');
 
-// One entry per medicine, from its most recent fill.
-function pharmacyFills(claims) {
-  const latest = new Map();
+// Every medicine line on the pharmacy claims. key is the entry in
+// data/drug-codes.js, or undefined when the NDC code is not in that table.
+function pharmacyItems(claims) {
+  const out = [];
   for (const e of claims.filter(isPharmacyClaim)) {
     const daysSupply = ((e.supportingInfo || []).find((s) => ((s.category && s.category.coding) || []).some((c) => c.code === 'dayssupply')) || {}).valueQuantity;
     for (const item of e.item || []) {
       const code = ((item.productOrService && item.productOrService.coding) || []).find((c) => /ndc/.test(c.system || ''));
-      const key = code && ndc[code.code];
-      const filled = item.servicedDate || (e.billablePeriod && e.billablePeriod.start);
-      if (!key || !filled) continue;
-      const prev = latest.get(key);
-      if (!prev || filled > prev.filled) {
-        latest.set(key, { key, filled, days: (daysSupply && daysSupply.value) || 30, quantity: item.quantity && item.quantity.value });
-      }
+      if (!code) continue;
+      out.push({
+        key: ndc[code.code],
+        ndc: code.code,
+        filled: item.servicedDate || (e.billablePeriod && e.billablePeriod.start),
+        days: (daysSupply && daysSupply.value) || 30,
+        quantity: item.quantity && item.quantity.value,
+        claimId: e.id,
+      });
     }
+  }
+  return out;
+}
+
+// One entry per medicine, from its most recent fill.
+function pharmacyFills(claims) {
+  const latest = new Map();
+  for (const fill of pharmacyItems(claims)) {
+    if (!fill.key || !fill.filled) continue;
+    const prev = latest.get(fill.key);
+    if (!prev || fill.filled > prev.filled) latest.set(fill.key, fill);
   }
   return [...latest.values()];
 }
 
-function fromFill(fill, practice, shift, todayMs) {
+// statement: the MedicationStatement made from this medicine's claims, if any.
+function fromFill(fill, practice, shift, todayMs, statement) {
   const drug = drugs[fill.key];
   const filled = shift(fill.filled);
   const runsOut = isoDay(toDay(filled) + fill.days * DAY);
@@ -188,6 +220,7 @@ function fromFill(fill, practice, shift, todayMs) {
   return {
     resourceType: 'ExplanationOfBenefit',
     id: `rx-${fill.key}`,
+    refs: statement ? [`MedicationStatement/${statement.id}`] : [],
     status: 'active',
     source: 'record',
     medication: drug.name,
@@ -202,15 +235,19 @@ function fromFill(fill, practice, shift, todayMs) {
   };
 }
 
-function fromStatement(s) {
+function fromStatement(s, practice) {
   const concept = s.medicationCodeableConcept || {};
   const name = concept.text || (concept.coding || [])[0]?.display || 'Unnamed medicine';
   const picked = otc.find((o) => o.name.toLowerCase() === name.toLowerCase());
+  // Made from claims: it came from the record, the patient did not add it.
+  const fromRecord = hasTag(s, CLAIMS_TAG);
   return {
     resourceType: 'MedicationStatement',
     id: `ms-${s.id}`,
+    refs: [`MedicationStatement/${s.id}`],
     status: s.status === 'active' ? 'active' : s.status,
-    source: 'patient',
+    source: fromRecord ? 'record' : 'patient',
+    ...(fromRecord && { requester: null, requesterPhone: practice && practice.phone }),
     addedOn: (s.dateAsserted || (s.meta && s.meta.lastUpdated) || '').slice(0, 10) || undefined,
     medication: name,
     ...(picked && { strength: `Contains ${picked.contains}`, ingredients: picked.ingredients }),
@@ -233,10 +270,17 @@ function mapRecord({ patient, resources }, today, practice) {
   const shift = (iso) => isoDay(toDay(iso) + offset);
 
   const medicationsById = new Map(of('Medication').map((m) => [m.id, m]));
+  const statements = of('MedicationStatement').filter((s) => s.status === 'active');
+  const rxnormCodes = (s) => ((s.medicationCodeableConcept && s.medicationCodeableConcept.coding) || [])
+    .filter((c) => c.system === RXNORM).map((c) => c.code);
+  const madeFromClaims = (key) => statements.find((s) => hasTag(s, CLAIMS_TAG) && rxnormCodes(s).includes(drugs[key].rxcui));
+  const fromClaims = fills.map((f) => fromFill(f, practice, shift, todayMs, madeFromClaims(f.key))).filter(Boolean);
+  // A statement made from claims is listed only if its claim medicine is not.
+  const alreadyListed = new Set(fromClaims.flatMap((m) => m.refs));
   const medications = [
     ...requests.map((r) => fromRequest(r, medicationsById, practice, shift)),
-    ...fills.map((f) => fromFill(f, practice, shift, todayMs)).filter(Boolean),
-    ...of('MedicationStatement').filter((s) => s.status === 'active').map(fromStatement),
+    ...fromClaims,
+    ...statements.filter((s) => !alreadyListed.has(`MedicationStatement/${s.id}`)).map((s) => fromStatement(s, practice)),
   ];
 
   return {
@@ -246,4 +290,4 @@ function mapRecord({ patient, resources }, today, practice) {
   };
 }
 
-module.exports = { loadRecord, addMedicine, removeDemoAdditions, mapRecord, toMedicationStatement, FhirError, DEMO_TAG };
+module.exports = { loadRecord, addMedicine, removeDemoAdditions, mapRecord, pharmacyItems, toMedicationStatement, FhirError, DEMO_TAG, CLAIMS_TAG, RXNORM };

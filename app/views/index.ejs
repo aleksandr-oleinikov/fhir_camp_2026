@@ -12,6 +12,18 @@
   <div class="panel panel-success" role="status"><p><%= notice %></p></div>
 <% } %>
 
+<% if (checkError) { %>
+  <div class="panel panel-important" role="alert">
+    <h2>We could not check your medicines</h2>
+    <p>We could not check whether your medicines mix well. This does not mean they are safe to take together. Try "Update my list" in a moment, or ask a pharmacist.</p>
+  </div>
+<% } else if (notChecked.length) { %>
+  <div class="panel panel-important" role="status">
+    <h2><%= notChecked.length === 1 ? '1 medicine was not checked' : `${notChecked.length} medicines were not checked` %></h2>
+    <p>We could not check <%= joinNames(notChecked) %> against your other medicines. Ask a pharmacist before you take <%= notChecked.length === 1 ? 'it' : 'them' %> with anything else.</p>
+  </div>
+<% } %>
+
 <% if (conflicts.length) { %>
   <h2 class="section-heading">
     <%= conflicts.length === 1 ? 'Some of your medicines may not mix well' : `${conflicts.length} pairs of your medicines may not mix well` %>
@@ -22,7 +34,7 @@
       <h3 class="conflict-heading" id="conflict-<%= i %>">
         <a class="conflict-open" href="/conflicts/<%= c.id %>">
           <%- include('partials/severity', { level: c.severity }) %>
-          <span class="visually-hidden"><%= c.meds[0].medication %> and <%= c.meds[1].medication %> may not mix well.</span>
+          <span class="visually-hidden"><%= joinNames(c.meds) %> may not mix well.</span>
           <span class="conflict-advice"><%= c.severityInfo.advice %></span>
           <span class="conflict-chevron" aria-hidden="true">›</span>
         </a>

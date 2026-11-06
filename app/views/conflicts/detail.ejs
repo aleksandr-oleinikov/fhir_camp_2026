@@ -1,7 +1,7 @@
 <%- include('../partials/head', { back: { href: '/', label: 'Your medicines' } }) %>
 
 <p><%- include('../partials/severity', { level: conflict.severity }) %></p>
-<h1><%= conflict.meds[0].medication %> and <%= conflict.meds[1].medication %> may not mix well</h1>
+<h1><%= joinNames(conflict.meds) %> may not mix well</h1>
 
 <ul class="pair" role="list">
   <% conflict.meds.forEach((m, i) => { %>
@@ -11,7 +11,7 @@
       <span class="pair-meta"><%= m.source === 'patient' ? 'Bought by you' : 'From ' + (m.requester || 'your doctor') %></span>
       <a href="/medicines/<%= m.id %>">More about <%= m.medication.toLowerCase() %></a>
     </li>
-    <% if (i === 0) { %><li class="pair-join" aria-hidden="true">+</li><% } %>
+    <% if (i < conflict.meds.length - 1) { %><li class="pair-join" aria-hidden="true">+</li><% } %>
   <% }) %>
 </ul>
 

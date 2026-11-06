@@ -7,7 +7,7 @@
 </a>
 
 <p class="summary-severity"><%- include('../partials/severity', { level: conflict.severity }) %></p>
-<h1><%= conflict.meds[0].medication %> and <%= conflict.meds[1].medication %></h1>
+<h1><%= joinNames(conflict.meds) %></h1>
 
 <ul class="contact-list" role="list">
   <% conflict.meds.forEach(m => { %>
@@ -29,4 +29,36 @@
 
 <h2 class="description-heading">What this means</h2>
 <p class="description"><%= conflict.summary %></p>
+
+<% if (conflict.clinical) { %>
+  <% const lines = (text) => String(text).split('\n').filter((line) => line.trim()); %>
+  <h2 class="description-heading">For your doctor or pharmacist</h2>
+  <p class="description">Show them this. It comes from a medicines database and is written for health professionals.</p>
+  <dl class="facts">
+    <% if (conflict.clinical.effect) { %>
+      <div>
+        <dt>Effect</dt>
+        <dd><%= conflict.clinical.effect %></dd>
+      </div>
+    <% } %>
+    <% if (conflict.clinical.advice) { %>
+      <div>
+        <dt>Advice</dt>
+        <dd><%= conflict.clinical.advice %></dd>
+      </div>
+    <% } %>
+    <% if (conflict.clinical.management) { %>
+      <div>
+        <dt>Management</dt>
+        <dd><% lines(conflict.clinical.management).forEach(line => { %><p><%= line %></p><% }) %></dd>
+      </div>
+    <% } %>
+    <% if (conflict.clinical.mechanism) { %>
+      <div>
+        <dt>Mechanism</dt>
+        <dd><% lines(conflict.clinical.mechanism).forEach(line => { %><p><%= line %></p><% }) %></dd>
+      </div>
+    <% } %>
+  </dl>
+<% } %>
 <%- include('../partials/foot') %>

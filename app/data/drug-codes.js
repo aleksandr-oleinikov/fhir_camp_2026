@@ -3,13 +3,15 @@
 // up in RxNav (NLM) on 6 November 2026; NDC 00427080094 is unknown to RxNav
 // and left out. Ingredient names use UK spelling (paracetamol, not
 // acetaminophen) so they match data/interactions.js.
+// `rxnorm` is the RxNorm name for `rxcui`, saved with the code when claims
+// are turned into MedicationStatements (lib/claim-statements.js).
 
 const drugs = {
-  lisinopril: { name: 'Lisinopril', strength: '10mg tablets', unit: 'tablets', ingredients: ['lisinopril'], rxcui: '314076' },
-  pulmozyme: { name: 'Pulmozyme', strength: 'Dornase alfa 1mg/mL, breathed in through a nebuliser', unit: 'mL', ingredients: ['dornase alfa'], rxcui: '205532' },
-  'hydrocodone-paracetamol': { name: 'Hydrocodone and paracetamol', strength: '5mg/300mg tablets', unit: 'tablets', ingredients: ['hydrocodone', 'paracetamol'], rxcui: '856987' },
-  'co-amoxiclav': { name: 'Co-amoxiclav', strength: '250mg/125mg tablets', unit: 'tablets', ingredients: ['amoxicillin', 'clavulanic acid'], rxcui: '562251' },
-  naproxen: { name: 'Naproxen', strength: '220mg tablets', unit: 'tablets', ingredients: ['naproxen'], rxcui: '849574' },
+  lisinopril: { name: 'Lisinopril', strength: '10mg tablets', unit: 'tablets', ingredients: ['lisinopril'], rxcui: '314076', rxnorm: 'lisinopril 10 MG Oral Tablet' },
+  pulmozyme: { name: 'Pulmozyme', strength: 'Dornase alfa 1mg/mL, breathed in through a nebuliser', unit: 'mL', ingredients: ['dornase alfa'], rxcui: '205532', rxnorm: 'dornase alfa 1 MG/ML Inhalation Solution [Pulmozyme]' },
+  'hydrocodone-paracetamol': { name: 'Hydrocodone and paracetamol', strength: '5mg/300mg tablets', unit: 'tablets', ingredients: ['hydrocodone', 'paracetamol'], rxcui: '856987', rxnorm: 'acetaminophen 300 MG / hydrocodone bitartrate 5 MG Oral Tablet' },
+  'co-amoxiclav': { name: 'Co-amoxiclav', strength: '250mg/125mg tablets', unit: 'tablets', ingredients: ['amoxicillin', 'clavulanic acid'], rxcui: '562251', rxnorm: 'amoxicillin 250 MG / clavulanate 125 MG Oral Tablet' },
+  naproxen: { name: 'Naproxen', strength: '220mg tablets', unit: 'tablets', ingredients: ['naproxen'], rxcui: '849574', rxnorm: 'naproxen sodium 220 MG Oral Tablet' },
 };
 
 const ndc = {
