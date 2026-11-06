@@ -6,9 +6,9 @@
       <p>If you need help but it is not an emergency, call <a href="tel:111">111</a>.</p>
       <% if (typeof demo !== 'undefined' && demo) { %>
         <div class="demo-note">
-          <p><strong>This is a demo.</strong> The patient, medicines and advice are made up. Any changes you make are saved on this device only.</p>
+          <p><strong>This is a demo.</strong> The patients are not real and the advice has not been checked by a clinician. <%= usesFhir ? 'Medicines you add are saved to a shared test server.' : 'Changes you make are saved on this device only.' %></p>
           <form method="post" action="/demo/reset">
-            <button class="demo-reset" type="submit">Reset the demo</button>
+            <button class="demo-reset" type="submit">Reset the demo and sign out</button>
           </form>
         </div>
       <% } %>

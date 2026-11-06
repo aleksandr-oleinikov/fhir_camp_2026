@@ -18,8 +18,9 @@
         <nav aria-label="Main">
           <ul role="list">
             <li><a href="/">Your medicines</a></li>
-            <li><a href="/appointments">Appointments</a></li>
-            <li><a href="/results">Test results</a></li>
+            <% if (typeof signedIn === 'undefined' || signedIn) { %>
+              <li><form method="post" action="/sign-out"><button class="menu-link" type="submit">Sign out</button></form></li>
+            <% } %>
           </ul>
         </nav>
       </details>

@@ -4,18 +4,49 @@
 const seed = require('../data/patient');
 const interactions = require('../data/interactions');
 const otc = require('../data/otc');
+const fhirConfig = require('../data/fhir-config');
+const fhir = require('./fhir');
 
 // Fixed "today" so the mock data stays sensible. Swap for new Date() with real data.
 const TODAY = new Date('2026-11-06T09:00:00');
 
 // ---- State -------------------------------------------------------------
 // Everything that changes during a demo lives here, so it can be saved as JSON.
-function createState() {
+// source is null until the patient "signs in" on the connect screens, then a
+// FHIR patient id from data/fhir-config.js, or 'mock' for data/patient.js.
+// A FHIR record is loaded on the first request after that, see ensureLoaded.
+function createState(source = null) {
   return {
+    source,
+    loaded: !source || source === 'mock',
+    loadError: null,
     record: JSON.parse(JSON.stringify(seed)),
     repeatRequests: [],
     nextId: 100,
   };
+}
+
+const usesFhir = (state) => Boolean(state.source) && state.source !== 'mock';
+
+// Replace the made-up medicines with the FHIR patient's. Appointments and
+// test results stay made up for now.
+async function loadFromFhir(state) {
+  const mapped = await fhir.loadRecord(fhirConfig, state.source, TODAY);
+  state.record.patient = mapped.patient;
+  state.record.medications = mapped.medications;
+  state.record.pendingRecordChanges = [];
+  state.record.medicationsLastUpdated = new Date().toISOString();
+  state.loadError = null;
+}
+
+async function ensureLoaded(state) {
+  if (state.loaded) return;
+  state.loaded = true; // also on failure, so every page does not retry; "Update my list" does
+  try {
+    await loadFromFhir(state);
+  } catch (e) {
+    state.loadError = e.message;
+  }
 }
 
 // ---- Formatting: plain English, e.g. "Thursday 12 November" -------------
@@ -69,6 +100,8 @@ function baseLocals(state) {
   return {
     formatDate, formatTime, relativeDay, formatWhen, SEVERITY,
     patientName: state.record.patient.name[0].given[0],
+    usesFhir: usesFhir(state),
+    signedIn: Boolean(state.source),
   };
 }
 
@@ -104,6 +137,7 @@ function toMedicine(state, m) {
     tags.push({ tone: 'neutral', text: `Repeat due ${formatDate(m.repeat.nextDue)}` });
   }
   if (m.changeNote) tags.push({ tone: 'neutral', text: m.changeNote });
+  if (m.lastSupply) tags.push({ tone: 'neutral', text: `Last collected ${formatDate(m.lastSupply.date)}` });
   if (m.source === 'patient') tags.push({ tone: 'neutral', text: 'Bought by you' });
   return { ...m, tags, requested };
 }
@@ -121,14 +155,16 @@ const matchKeys = (m) => m.ingredients || [m.medication.trim().split(/\s+/)[0].t
 
 // Every pair of active medicines that a rule covers, most serious first.
 // Two products with the same ingredient (Ibuprofen and Advil) each get their own conflict.
+// A rule naming one ingredient twice (paracetamol) catches doubling up, once per pair.
 function findConflicts(state, meds = activeMedicines(state)) {
   const byKey = new Map();
   for (const m of meds) for (const k of matchKeys(m)) byKey.set(k, [...(byKey.get(k) || []), m]);
   const out = [];
   for (const r of interactions) {
     const [left, right] = r.medicines.map((k) => byKey.get(k) || []);
+    const sameIngredient = r.medicines[0] === r.medicines[1];
     for (const a of left) for (const b of right) {
-      if (a.id === b.id) continue;
+      if (a.id === b.id || (sameIngredient && a.id > b.id)) continue;
       out.push({ ...r, id: `${r.id}-${a.id}-${b.id}`, meds: [a, b], severityInfo: SEVERITY[r.severity] });
     }
   }
@@ -161,6 +197,7 @@ const routes = [
         others: meds.filter((m) => !inConflict.has(m.id)),
         lastUpdated: s.record.medicationsLastUpdated,
         notice,
+        loadError: s.loadError,
       },
     };
   }],
@@ -192,7 +229,17 @@ const routes = [
     };
   }],
 
-  ['POST', '/medicines/update', (s) => {
+  ['POST', '/medicines/update', async (s) => {
+    if (usesFhir(s)) {
+      const before = new Set(s.record.medications.map((m) => m.id));
+      try {
+        await loadFromFhir(s);
+      } catch (e) {
+        s.loadError = e.message;
+        return { redirect: '/' };
+      }
+      return { redirect: `/?updated=${s.record.medications.some((m) => !before.has(m.id)) ? 'changes' : 'none'}` };
+    }
     const changes = s.record.pendingRecordChanges.splice(0);
     s.record.medications.push(...changes);
     s.record.medicationsLastUpdated = new Date().toISOString();
@@ -201,10 +248,10 @@ const routes = [
 
   ['GET', '/medicines/add', () => ({
     view: 'medicines/add',
-    locals: { title: 'Add a medicine', values: {}, errors: null, otc },
+    locals: { title: 'Add a medicine', values: {}, errors: null, saveError: false, otc },
   })],
 
-  ['POST', '/medicines/add', (s, p, q, body) => {
+  ['POST', '/medicines/add', async (s, p, q, body) => {
     const values = {
       choice: (body.choice || '').trim(),
       name: (body.name || '').trim(),
@@ -219,12 +266,25 @@ const routes = [
         status: 400,
         view: 'medicines/add',
         locals: {
-          title: 'Error: Add a medicine', values, otc,
+          title: 'Error: Add a medicine', values, otc, saveError: false,
           errors: { choice: 'Choose a medicine from the list, or type its name' },
         },
       };
     }
     const fromList = !values.name && picked;
+    if (usesFhir(s)) {
+      try {
+        const med = await fhir.addMedicine(fhirConfig, s.source, { name, reason: values.reason, dose: values.dose });
+        s.record.medications.push(med);
+        return { redirect: `/?added=${encodeURIComponent(med.id)}` };
+      } catch (e) {
+        return {
+          status: 502,
+          view: 'medicines/add',
+          locals: { title: 'Error: Add a medicine', values, otc, errors: null, saveError: true },
+        };
+      }
+    }
     const id = `m${s.nextId++}`;
     s.record.medications.push({
       resourceType: 'MedicationStatement',
@@ -259,6 +319,58 @@ const routes = [
     if (!m) return notFound();
     if (m.repeat && !s.repeatRequests.includes(m.id)) s.repeatRequests.push(m.id);
     return { redirect: `/medicines/${m.id}?requested=1` };
+  }],
+
+  // Fake sign-in, wireframe "Connect to payer". Only payers with a patient lead anywhere.
+  ['GET', '/connect', (s, p, q) => ({
+    view: 'connect/index',
+    locals: {
+      title: 'Connect to payer',
+      payers: fhirConfig.payers,
+      notice: q.reset === '1' ? 'The demo has been reset.' : q.signedOut === '1' ? 'You have signed out.' : null,
+      resetError: q.resetError === '1',
+    },
+  })],
+
+  ['GET', '/connect/:payer', (s, p) => {
+    const payer = fhirConfig.payers.find((x) => x.id === p.payer && x.patientId);
+    if (!payer) return notFound();
+    return { view: 'connect/sign-in', locals: { title: `Sign in to ${payer.name}`, payer, values: {}, errors: null } };
+  }],
+
+  // Any username and password will do; neither is kept.
+  ['POST', '/connect/:payer', async (s, p, q, body) => {
+    const payer = fhirConfig.payers.find((x) => x.id === p.payer && x.patientId);
+    if (!payer) return notFound();
+    const values = { username: (body.username || '').trim() };
+    const errors = {};
+    if (!values.username) errors.username = 'Enter your username';
+    if (!body.password) errors.password = 'Enter your password';
+    if (Object.keys(errors).length) {
+      return { status: 400, view: 'connect/sign-in', locals: { title: `Error: Sign in to ${payer.name}`, payer, values, errors } };
+    }
+    Object.assign(s, createState(payer.patientId));
+    await ensureLoaded(s);
+    return { redirect: '/' };
+  }],
+
+  ['POST', '/sign-out', (s) => {
+    Object.assign(s, createState());
+    return { redirect: '/connect?signedOut=1' };
+  }],
+
+  // Starts the demo again: removes medicines it added to the FHIR server and signs out.
+  ['POST', '/demo/reset', async (s) => {
+    let failed = false;
+    if (usesFhir(s)) {
+      try {
+        await fhir.removeDemoAdditions(fhirConfig, s.source);
+      } catch (e) {
+        failed = true;
+      }
+    }
+    Object.assign(s, createState());
+    return { redirect: `/connect?reset=1${failed ? '&resetError=1' : ''}` };
   }],
 
   ['GET', '/appointments', (s) => {
@@ -300,13 +412,18 @@ const compiled = routes.map(([method, pattern, handler]) => {
 });
 
 // Run one request against the state. state may be changed by POST handlers.
-function handle(state, method, path, query = {}, body = {}) {
+async function handle(state, method, path, query = {}, body = {}) {
+  // Nothing but the connect screens until the patient has "signed in".
+  if (!state.source && !path.startsWith('/connect') && path !== '/demo/reset') {
+    return { redirect: '/connect' };
+  }
+  await ensureLoaded(state);
   for (const r of compiled) {
     if (r.method !== method) continue;
     const m = path.match(r.re);
     if (!m) continue;
     const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
-    const result = r.handler(state, params, query, body);
+    const result = await r.handler(state, params, query, body);
     if (result.view) result.locals = { ...baseLocals(state), ...result.locals };
     return result;
   }
@@ -315,4 +432,4 @@ function handle(state, method, path, query = {}, body = {}) {
   return result;
 }
 
-module.exports = { createState, handle };
+module.exports = { createState, handle, findConflicts };

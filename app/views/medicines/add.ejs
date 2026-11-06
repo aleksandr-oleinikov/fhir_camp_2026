@@ -11,6 +11,13 @@
   </div>
 <% } %>
 
+<% if (saveError) { %>
+  <div class="error-summary" role="alert" aria-labelledby="error-title" tabindex="-1">
+    <h2 id="error-title">There is a problem</h2>
+    <p>We could not save this to your record. Check your connection and try again.</p>
+  </div>
+<% } %>
+
 <h1>Add a medicine</h1>
 <p class="lead">Add anything else you take, such as medicines you buy yourself, vitamins or herbal remedies. Your doctor will be able to see it.</p>
 

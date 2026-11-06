@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "static-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "const h=require('http'),f=require('fs');h.createServer((q,r)=>{r.setHeader('content-type','text/html; charset=utf-8');r.end(f.readFileSync('app/dist/index.html'))}).listen(5050)"],
+      "port": 5050
+    },
+    {
+      "name": "dev-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

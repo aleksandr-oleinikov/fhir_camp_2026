@@ -3,7 +3,7 @@
     <span class="med-name"><%= m.medication %></span>
     <span class="med-detail">
       <% if (m.reason) { %><span class="med-for"><%= m.reason %></span><% } %>
-      <% if (m.source !== 'patient') { %><span class="med-from">From <%= m.requester %></span><% } %>
+      <% if (m.source !== 'patient' && m.requester) { %><span class="med-from">From <%= m.requester %></span><% } %>
     </span>
     <% if (m.tags.length) { %>
       <span class="med-tags">
