@@ -15,6 +15,37 @@ Environment variables: `AIDBOX_URL`, `AIDBOX_CLIENT_ID`, `AIDBOX_CLIENT_SECRET`,
 
 Below, `SDB` = `https://rest.scholzdatabank.com/ditwebservices`. Every Scholz call gets `?format=json`.
 
+```mermaid
+sequenceDiagram
+    participant UI
+    participant BE as Backend
+    participant AB as Aidbox
+    participant RX as RxNav
+    participant SDB as Scholz DataBank
+
+    UI->>BE: GET /patients/{id}/interactions?asOf=...
+    BE->>AB: GET ExplanationOfBenefit?patient=Patient/{id} (step 1)
+    AB-->>BE: pharmacy EOBs with NDC, servicedDate, dayssupply
+    Note over BE: steps 2-3: keep fills current on asOf
+    loop each current NDC (steps 4-6)
+        BE->>RX: GET ndcstatus.json?ndc={ndc}
+        RX-->>BE: rxcui
+        BE->>RX: GET rxcui/{rxcui}/properties.json
+        RX-->>BE: tty must be SCD or SBD
+        BE->>SDB: GET distinctdrugsbyrxcui/{UCI}/{rxcui}
+        SDB-->>BE: DrugCode, or ErrorCode 2 (goes to notChecked)
+    end
+    BE->>SDB: GET interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},... (step 7)
+    SDB-->>BE: ErrorCode and InteractionListEx (steps 8-9)
+    BE->>AB: PUT DetectedIssue?identifier=... per pair, cancel stale ones (step 10)
+    BE-->>UI: medicines, conflicts, notChecked
+
+    UI->>BE: GET /patients/{id}/interactions/{interactionCode}
+    BE->>SDB: GET interactionfulltext/{UCI}/{InteractionCcode} (step 11)
+    SDB-->>BE: Mechanism, Management
+    BE-->>UI: full text
+```
+
 1. **EOBs from Aidbox.** `GET {AIDBOX_URL}/fhir/ExplanationOfBenefit?patient=Patient/{id}&_count=100`, then follow `link` with `relation = next`. In code, keep EOBs whose `type.coding` has `http://terminology.hl7.org/CodeSystem/claim-type` with code `pharmacy` and whose `status` is neither `cancelled` nor `entered-in-error`.
 2. **Fills.** From each `item` take:
    * the NDC from `productOrService.coding` with system `http://hl7.org/fhir/sid/ndc` (11 digits);
