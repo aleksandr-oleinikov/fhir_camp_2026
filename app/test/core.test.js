@@ -48,6 +48,7 @@ test('sign-in needs a username and password, then loads the record', async () =>
   assert.match(home.html, /Hi Chi!/);
   assert.match(home.html, /Lisinopril/);
   assert.match(home.html, /Last collected/);
+  for (const word of ['Hypertension', 'Pain']) assert.match(home.html, new RegExp(`tag-treats">${word}<`), word);
   assert.doesNotMatch(home.html, /Atorvastatin/, 'made-up medicines are gone');
 });
 
@@ -101,6 +102,18 @@ test('made-up record still works, and paracetamol twice is one conflict', async 
   const s = createState('mock');
   await page(s, 'POST', '/medicines/add', { choice: 'tylenol', name: '', reason: '', dose: '' });
   assert.equal(findConflicts(s).filter((c) => c.id.startsWith('paracetamol-paracetamol')).length, 1);
+  await handle(s, 'POST', '/medicines/add', {}, { choice: '', name: 'Melatonin', reason: 'trouble sleeping', dose: '' });
+  await handle(s, 'POST', '/medicines/add', {}, { choice: '', name: 'Mystery drops', reason: '', dose: '' });
+  const home = await page(s, 'GET', '/');
+  // The treats tag inside the list row for one medicine.
+  const treatsOf = (name) => {
+    const row = home.html.split('<li>').find((li) => li.includes(`med-name">${name}<`)) || '';
+    return (row.match(/tag-treats">(\w+)</) || [])[1];
+  };
+  assert.equal(treatsOf('Atorvastatin'), 'Cholesterol');
+  assert.equal(treatsOf('Tylenol'), 'Pain', 'from the over-the-counter ingredients');
+  assert.equal(treatsOf('Melatonin'), 'Sleep', 'from the reason typed in');
+  assert.equal(treatsOf('Mystery drops'), undefined, 'no tag when we cannot tell');
   assert.equal(global.fetch, server.fetch);
   assert.equal(server.calls.length, 0, 'no FHIR calls in made-up mode');
   for (const url of ['/', '/appointments', '/appointments/a1', '/results', '/results/o1', '/medicines/add', '/nope']) {

@@ -1,5 +1,18 @@
+/* ---- Typeface ---------------------------------------------------------- */
+/* Inter (SIL Open Font License, see fonts/inter-OFL.txt), embedded so every
+   device shows the same type. The static build inlines it. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ---- Design tokens ---------------------------------------------------- */
+/* Light mode only, whatever the device is set to. */
 :root {
+  color-scheme: light;
   --bg: #f4f6f8;
   --surface: #ffffff;
   --text: #0b0c0c;
@@ -23,26 +36,10 @@
   --tap: 48px;
   --max: 42rem;
 
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 106.25%; /* 17px */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11161b;
-    --surface: #1b232b;
-    --text: #f1f3f5;
-    --text-muted: #b9c2ca;
-    --border: #4a5560;
-    --brand: #5aa9ff;
-    --brand-dark: #a8d0ff;
-    --link: #8cc4ff;
-
-    --ok-bg: #123524;   --ok-text: #9ee2b8;
-    --warn-bg: #3a2a07; --warn-text: #ffd98a; --warn-edge: #ffb81c;
-    --neutral-bg: #26313b; --neutral-text: #d5dde4;
-  }
-}
 
 /* ---- Base ------------------------------------------------------------- */
 body {
@@ -95,19 +92,17 @@ a:hover { text-decoration-thickness: 3px; }
 }
 .skip-link:focus { top: var(--space-1); }
 
-.site-header { background: var(--brand); }
+.site-header { background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 1px 4px rgb(0 0 0 / 0.05); }
 .site-header .wrap { min-height: 60px; display: flex; align-items: center; }
 .site-name {
-  color: #fff;
-  font-weight: 700;
-  font-size: 1.2rem;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
   text-decoration: none;
   min-height: var(--tap);
   display: inline-flex;
   align-items: center;
-}
-@media (prefers-color-scheme: dark) {
-  .site-header { background: #0b2a4a; }
 }
 
 .site-footer {
@@ -170,11 +165,12 @@ a:hover { text-decoration-thickness: 3px; }
   padding: 0.15rem 0.6rem;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 .tag-ok { background: var(--ok-bg); color: var(--ok-text); }
 .tag-warn { background: var(--warn-bg); color: var(--warn-text); }
 .tag-neutral { background: var(--neutral-bg); color: var(--neutral-text); }
+.tag-treats { background: transparent; color: var(--link); box-shadow: inset 0 0 0 1.5px currentColor; }
 
 /* ---- Facts (definition lists) ----------------------------------------- */
 .facts {
@@ -186,7 +182,7 @@ a:hover { text-decoration-thickness: 3px; }
 }
 .facts > div { padding: var(--space-2); }
 .facts > div + div { border-top: 1px solid var(--border); }
-.facts dt { font-weight: 700; color: var(--text-muted); font-size: 0.95rem; }
+.facts dt { font-weight: 700; color: var(--text-muted); font-size: 1rem; }
 .facts dd { margin: 0.2rem 0 0; }
 
 /* ---- Panels ----------------------------------------------------------- */
@@ -220,11 +216,11 @@ a:hover { text-decoration-thickness: 3px; }
   justify-content: center;
   min-height: var(--tap);
   padding: 0.6rem 1.4rem;
-  background: #00703c;
+  background: var(--brand);
   color: #fff;
   border: 0;
   border-radius: 8px;
-  box-shadow: 0 3px 0 #002d18;
+  box-shadow: 0 3px 0 #002a54;
   font-weight: 700;
   font-size: 1.05rem;
   text-decoration: none;
@@ -232,9 +228,9 @@ a:hover { text-decoration-thickness: 3px; }
   width: 100%;
   margin-top: var(--space-1);
 }
-.button:hover { background: #005a30; }
-.button:active { translate: 0 2px; box-shadow: 0 1px 0 #002d18; }
-@media (min-width: 30rem) { .button { width: auto; } }
+.button:hover { background: var(--brand-dark); }
+.button:active { translate: 0 2px; box-shadow: 0 1px 0 #002a54; }
+.button { max-width: 30rem; } /* full width on phones, capped on wider screens */
 
 /* ---- Motion ----------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
@@ -264,9 +260,9 @@ a:hover { text-decoration-thickness: 3px; }
   gap: 0.5rem;
   min-height: var(--tap);
   padding: 0 0.9rem;
-  border: 2px solid rgb(255 255 255 / 0.8);
+  border: 2px solid var(--brand);
   border-radius: 999px;
-  color: #fff;
+  color: var(--brand);
   font-weight: 700;
   cursor: pointer;
 }
@@ -336,7 +332,6 @@ a:hover { text-decoration-thickness: 3px; }
 
 /* Medicine icons: decorative, drawn in the link colour on a soft tint */
 :root { --icon-fill: #cfe3f7; }
-@media (prefers-color-scheme: dark) { :root { --icon-fill: #2f5f8f; } }
 .med-icon {
   flex: none; display: grid; place-items: center;
   width: 3rem; height: 3rem; border-radius: 50%;
@@ -370,25 +365,25 @@ a:hover { text-decoration-thickness: 3px; }
   gap: 0.4rem;
   min-height: 7rem;
   padding: var(--space-2);
-  background: #00703c;
+  background: var(--brand);
   color: #fff;
   border: 0;
   border-radius: 24px;
-  box-shadow: 0 4px 0 #002d18;
+  box-shadow: 0 4px 0 #002a54;
   font-weight: 700;
   font-size: 1.1rem;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
 }
-.action-tile:hover { background: #005a30; }
-.action-tile:active { translate: 0 2px; box-shadow: 0 2px 0 #002d18; }
+.action-tile:hover { background: var(--brand-dark); }
+.action-tile:active { translate: 0 2px; box-shadow: 0 2px 0 #002a54; }
 .action-tile:focus-visible { box-shadow: 0 0 0 4px var(--focus-text); }
 .action-tile-secondary { background: var(--surface); color: var(--link); border: 2px solid var(--brand); box-shadow: 0 4px 0 var(--brand); }
 .action-tile-secondary:hover { background: var(--neutral-bg); }
 .action-tile-secondary:active { box-shadow: 0 2px 0 var(--brand); }
 .action-icon { width: 2.2rem; height: 2.2rem; }
-.updated-note { margin-top: var(--space-2); color: var(--text-muted); font-size: 0.95rem; }
+.updated-note { margin-top: var(--space-2); color: var(--text-muted); font-size: 1rem; }
 
 @media (prefers-reduced-motion: reduce) { .action-tile:active { translate: none; } }
 
@@ -422,20 +417,12 @@ a:hover { text-decoration-thickness: 3px; }
 .error-summary a { color: var(--error); font-weight: 700; }
 
 :root { --error: #c41e1e; }
-@media (prefers-color-scheme: dark) { :root { --error: #ff8a80; } }
 
 /* ---- Conflicts and severity ------------------------------------------ */
 :root {
   --sev3: #c41e1e; --sev3-bg: #fde8e8;
   --sev2: #b25000; --sev2-bg: #fff0e0;
   --sev1: #6b5600; --sev1-bg: #fff8d6; --sev1-mark: #ffdd00;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --sev3: #ff8a80; --sev3-bg: #3d1414;
-    --sev2: #ffb366; --sev2-bg: #3a2408;
-    --sev1: #ffe066; --sev1-bg: #33300a; --sev1-mark: #ffdd00;
-  }
 }
 
 .section-heading { margin-bottom: 0.2rem; }
@@ -460,7 +447,6 @@ a:hover { text-decoration-thickness: 3px; }
 .severity-3 .severity-label { color: var(--sev3); }
 .severity-2 .severity-label { color: var(--sev2); }
 .severity-1 .severity-label { color: var(--sev1); }
-@media (prefers-color-scheme: dark) { .severity-3 .mark, .severity-2 .mark { color: #0b0c0c; } }
 
 .conflict {
   border: 3px solid var(--sev);
@@ -534,23 +520,6 @@ a:hover { text-decoration-thickness: 3px; }
 .conflict .mark { width: 1.75rem; height: 1.75rem; font-size: 1.1rem; }
 
 /* ---- Conflict summary (wireframe 3) ----------------------------------- */
-.round-back {
-  display: inline-flex; align-items: center; gap: 0.6rem;
-  min-height: var(--tap);
-  margin-bottom: var(--space-2);
-  font-weight: 700;
-  color: var(--link);
-  text-decoration: none;
-}
-.round-back-icon {
-  display: inline-grid; place-items: center;
-  width: var(--tap); height: var(--tap);
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-.round-back-icon svg { width: 1.4rem; height: 1.4rem; }
-.round-back:hover .round-back-icon { background: var(--neutral-bg); }
-.round-back:focus-visible .round-back-icon { border-color: var(--focus-text); }
 
 .summary-severity { margin-bottom: 0.25rem; }
 
@@ -571,7 +540,7 @@ a:hover { text-decoration-thickness: 3px; }
   min-height: var(--tap);
   padding: 0.5rem 1rem;
   border: 2px solid var(--brand);
-  border-radius: 999px;
+  border-radius: 8px;
   font-weight: 700;
   text-decoration: none;
 }
@@ -619,14 +588,15 @@ a:hover { text-decoration-thickness: 3px; }
 .payer {
   display: flex; flex-direction: column; justify-content: center; align-items: center;
   width: 100%; aspect-ratio: 2 / 1; padding: 0.5rem 0.75rem; /* every tile the same size */
-  border: 2px solid var(--text); border-radius: var(--radius);
+  border: 2px solid var(--border); border-radius: var(--radius);
   background: var(--surface); color: var(--text);
   font: inherit; font-weight: 700; text-align: center; text-decoration: none; line-height: 1.2;
 }
-a.payer:hover { border-color: var(--brand); color: var(--brand); }
+a.payer:hover { border-color: var(--brand); color: var(--brand); box-shadow: 0 4px 12px rgb(0 61 120 / 0.18); }
+.payer { box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
 .payer:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 button.payer { cursor: default; }
-.payer-detail { font-weight: 400; font-size: 0.95rem; }
+.payer-detail { font-weight: 400; font-size: 1rem; }
 .button-secondary { background: var(--surface); color: var(--link); border: 2px solid var(--brand); box-shadow: 0 3px 0 var(--brand); gap: 0.5rem; width: 100%; max-width: 30rem; }
 .button-secondary:hover { background: var(--neutral-bg); }
 .button-secondary[aria-disabled="true"] { cursor: default; }
@@ -642,3 +612,67 @@ button.payer { cursor: default; }
 }
 .menu-link:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .loading { padding: 2rem 1rem; font-size: 1.1rem; }
+
+/* ---- App icon --------------------------------------------------------- */
+.app-icon { width: 2rem; height: 2rem; flex: none; }
+.site-name { gap: 0.6rem; }
+.site-name .app-icon { width: 2.25rem; height: 2.25rem; }
+.wordmark-pill { color: #1e3b89; }
+.wordmark-sorter { color: #2464ea; }
+.app-icon-large { width: 4rem; height: 4rem; }
+
+/* ---- Sign in: Pill Sorter joined to the data source -------------------- */
+.center { text-align: center; }
+.connect-hero {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  margin: 0 auto var(--space-3); padding: var(--space-3) var(--space-2);
+  max-width: 30rem; border-radius: calc(var(--radius) + 8px);
+  background:
+    radial-gradient(circle at 15% 20%, rgb(140 196 255 / 0.35) 0 3rem, transparent 3rem),
+    radial-gradient(circle at 90% 85%, rgb(0 94 184 / 0.12) 0 4rem, transparent 4rem),
+    #e6f0fa;
+}
+.connect-end {
+  display: grid; place-items: center; flex: none;
+  width: 5.5rem; height: 5.5rem; border-radius: 18px;
+  background: #fff; box-shadow: 0 4px 14px rgb(0 61 120 / 0.18);
+  overflow: hidden;
+}
+.connect-source img { width: 100%; height: 100%; object-fit: contain; padding: 0.5rem; }
+.connect-fill img { padding: 0; }
+.connect-app { background: none; }
+.connect-app .app-icon { width: 100%; height: 100%; }
+.connect-line { flex: 1; max-width: 3rem; border-top: 3px dashed var(--brand); opacity: 0.6; }
+.connect-lock {
+  display: grid; place-items: center; flex: none;
+  width: 2.5rem; height: 2.5rem; border-radius: 50%;
+  background: var(--brand); color: #fff;
+}
+.connect-lock svg { width: 1.3rem; height: 1.3rem; }
+.form-card {
+  max-width: 30rem; margin: 0 auto var(--space-2); padding: var(--space-3) var(--space-2) var(--space-2);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+}
+.form-card .button { width: 100%; }
+
+/* ---- Add a medicine: medicine icons around a plus --------------------- */
+.add-hero {
+  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+  margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-2);
+  max-width: 30rem; border-radius: calc(var(--radius) + 8px);
+  background:
+    radial-gradient(circle at 10% 85%, rgb(140 196 255 / 0.35) 0 2.5rem, transparent 2.5rem),
+    radial-gradient(circle at 92% 15%, rgb(0 94 184 / 0.12) 0 3.5rem, transparent 3.5rem),
+    #e6f0fa;
+}
+.add-hero .med-icon { background: var(--surface); box-shadow: 0 3px 10px rgb(0 61 120 / 0.15); }
+.add-hero .med-icon:nth-child(2), .add-hero .med-icon:nth-child(4) { translate: 0 0.6rem; }
+.add-plus {
+  display: grid; place-items: center; flex: none;
+  width: 4rem; height: 4rem; border-radius: 50%;
+  background: var(--brand); color: #fff; box-shadow: 0 4px 14px rgb(0 61 120 / 0.3);
+}
+.add-plus svg { width: 2rem; height: 2rem; }
+.form-card { margin-inline: 0; }
+.connect-hero + h1 + .lead + .form-card { margin-inline: auto; }

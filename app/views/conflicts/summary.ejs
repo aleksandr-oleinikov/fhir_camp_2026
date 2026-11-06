@@ -1,10 +1,4 @@
-<%- include('../partials/head') %>
-<a class="round-back" href="/">
-  <span class="round-back-icon" aria-hidden="true">
-    <svg viewBox="0 0 24 24" focusable="false"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </span>
-  Back
-</a>
+<%- include('../partials/head', { back: { href: '/', label: 'Your medicines' } }) %>
 
 <p class="summary-severity"><%- include('../partials/severity', { level: conflict.severity }) %></p>
 <h1><%= conflict.meds[0].medication %> and <%= conflict.meds[1].medication %></h1>

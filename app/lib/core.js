@@ -6,6 +6,7 @@ const interactions = require('../data/interactions');
 const otc = require('../data/otc');
 const fhirConfig = require('../data/fhir-config');
 const fhir = require('./fhir');
+const treats = require('../data/treats');
 
 // Fixed "today" so the mock data stays sensible. Swap for new Date() with real data.
 const TODAY = new Date('2026-11-06T09:00:00');
@@ -145,9 +146,19 @@ function medicineForm(m) {
   return 'generic';
 }
 
+// One word for what it treats, e.g. "Pain". From its ingredients, else the
+// patient's own reason, else nothing.
+function treatsWord(m) {
+  for (const k of matchKeys(m)) if (treats.byIngredient[k]) return treats.byIngredient[k];
+  const hit = treats.byReason.find(([re]) => re.test(m.reason || ''));
+  return hit ? hit[1] : null;
+}
+
 // Small, non-alarming tags. "!" is kept for conflicts only.
 function toMedicine(state, m) {
   const tags = [];
+  const treatsTag = treatsWord(m);
+  if (treatsTag) tags.push({ tone: 'treats', text: treatsTag });
   const requested = state.repeatRequests.includes(m.id);
   if (m.repeat && !requested && daysFromToday(m.repeat.nextDue) <= 7) {
     tags.push({ tone: 'neutral', text: `Repeat due ${formatDate(m.repeat.nextDue)}` });

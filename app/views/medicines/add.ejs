@@ -18,10 +18,21 @@
   </div>
 <% } %>
 
+<%# The kinds of medicine you can add, around a plus. Decorative. %>
+<div class="add-hero" aria-hidden="true">
+  <%- include('../partials/med-icon', { form: 'tablet' }) %>
+  <%- include('../partials/med-icon', { form: 'capsule' }) %>
+  <span class="add-plus">
+    <svg viewBox="0 0 24 24" focusable="false"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+  </span>
+  <%- include('../partials/med-icon', { form: 'liquid' }) %>
+  <%- include('../partials/med-icon', { form: 'generic' }) %>
+</div>
+
 <h1>Add a medicine</h1>
 <p class="lead">Add anything else you take, such as medicines you buy yourself, vitamins or herbal remedies. Your doctor will be able to see it.</p>
 
-<form method="post" action="/medicines/add" novalidate>
+<form class="form-card" method="post" action="/medicines/add" novalidate>
   <div class="field <%= errors && errors.choice ? 'field-error' : '' %>">
     <label for="choice">Which medicine?</label>
     <p class="hint" id="choice-hint">Choose from medicines you can buy without a prescription.</p>

@@ -11,10 +11,23 @@
   </div>
 <% } %>
 
-<h1>Sign in to <%= payer.name %></h1>
-<% if (payer.detail) { %><p class="lead"><%= payer.detail %></p><% } %>
+<%# Pill Sorter joined to the data source by a padlock. Decorative: the heading says it. %>
+<div class="connect-hero" aria-hidden="true">
+  <span class="connect-end connect-app"><%- include('../partials/app-icon') %></span>
+  <span class="connect-line"></span>
+  <span class="connect-lock">
+    <svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="15.5" r="1.6" fill="#fff"/></svg>
+  </span>
+  <span class="connect-line"></span>
+  <span class="connect-end connect-source<%= payer.logoFill ? ' connect-fill' : '' %>"<% if (payer.logoBg) { %> style="background: <%= payer.logoBg %>"<% } %>>
+    <img src="<%= asset(payer.logo) %>" alt="">
+  </span>
+</div>
 
-<form method="post" action="/connect/<%= payer.id %>" novalidate>
+<h1 class="center">Sign in to <%= payer.name %></h1>
+<p class="lead center">Pill Sorter will read your medicines from <%= payer.name %><%= payer.detail ? ` (${payer.detail})` : '' %>.</p>
+
+<form class="form-card" method="post" action="/connect/<%= payer.id %>" novalidate>
   <% [['username', 'Username', 'text'], ['password', 'Password', 'password']].forEach(([field, label, type]) => { %>
     <div class="field <%= errors && errors[field] ? 'field-error' : '' %>">
       <label for="<%= field %>"><%= label %></label>
@@ -28,5 +41,5 @@
   <% }) %>
   <button class="button" type="submit">Sign in</button>
 </form>
-<p class="hint">This is a demo: any username and password will work.</p>
+<p class="hint center">This is a demo: any username and password will work.</p>
 <%- include('../partials/foot') %>
