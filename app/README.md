@@ -44,6 +44,6 @@ npm run build:demo   # writes dist/index.html
 
 ## Not done yet
 
-- Appointments and test results are still made up, even for the FHIR patients.
+- Appointments and test results pages still exist on made-up data, but nothing links to them: the demo is medicines only.
 - Diagnoses (`Condition`, claim diagnoses) are not shown yet. See `docs/fhir-findings.md`.
 - The token in `data/fhir-config.js` is only acceptable because the server is a throwaway test server. Never do this with a real one.
