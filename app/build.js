@@ -59,14 +59,17 @@ const js = esbuild.buildSync({
 // 4. Inline everything into one HTML file.
 const css = ['reset.css', 'styles.css']
   .map((f) => fs.readFileSync(path.join(root, 'public', 'css', f), 'utf8'))
-  .join('\n');
+  .join('\n')
+  // Fonts referenced as url("/fonts/...") are embedded too.
+  .replace(/url\("\/(fonts\/[^"]+\.woff2)"\)/g, (m, file) =>
+    `url("data:font/woff2;base64,${fs.readFileSync(path.join(root, 'public', file)).toString('base64')}")`);
 
 const html = `<!doctype html>
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="robots" content="noindex">
 <title>Pill Sorter – demo</title>
 <style>${css}</style>
