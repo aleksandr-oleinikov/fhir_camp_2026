@@ -1,6 +1,6 @@
-<%- include('../partials/head', { back: { href: '/medicines', label: 'All medicines' } }) %>
+<%- include('../partials/head', { back: { href: '/', label: 'Your medicines' } }) %>
 
-<% if (justRequested && requested) { %>
+<% if (justRequested && med.requested) { %>
   <div class="panel panel-success" role="status">
     <h2>Repeat prescription requested</h2>
     <p>Your doctor's surgery will check your request. This usually takes 2 working days. Your pharmacy will let you know when it is ready.</p>
@@ -8,18 +8,31 @@
 <% } %>
 
 <h1><%= med.medication %></h1>
-<p class="lead"><%= med.strength %></p>
+<% if (med.strength) { %><p class="lead"><%= med.strength %></p><% } %>
 
 <dl class="facts">
-  <div>
-    <dt>What it is for</dt>
-    <dd><%= med.reason %></dd>
-  </div>
+  <% if (med.reason) { %>
+    <div>
+      <dt>What it is for</dt>
+      <dd><%= med.reason %></dd>
+    </div>
+  <% } %>
   <div>
     <dt>How to take it</dt>
-    <dd><strong><%= med.dosageInstruction %></strong></dd>
+    <dd><strong><%= med.dosageInstruction || 'Not given' %></strong></dd>
+  </div>
+  <div>
+    <dt><%= med.source === 'patient' ? 'Added by' : 'Prescribed by' %></dt>
+    <dd><%= med.source === 'patient' ? `You, on ${formatDate(med.addedOn)}` : med.requester %></dd>
   </div>
 </dl>
+
+<% if (med.source === 'patient') { %>
+  <section class="panel" aria-labelledby="unchecked">
+    <h2 id="unchecked">Your doctor has not checked this yet</h2>
+    <p>Tell your doctor or pharmacist you take this, especially before you start a new medicine.</p>
+  </section>
+<% } %>
 
 <% if (med.warning) { %>
   <section class="panel panel-important" aria-labelledby="warn">
@@ -30,7 +43,7 @@
 
 <% if (med.repeat) { %>
   <h2>Repeat prescription</h2>
-  <% if (requested) { %>
+  <% if (med.requested) { %>
     <p>You have already asked for a repeat of this medicine.</p>
   <% } else { %>
     <p>Your next repeat is due <strong><%= formatDate(med.repeat.nextDue) %></strong>.
@@ -39,8 +52,5 @@
       <button class="button" type="submit">Request a repeat</button>
     </form>
   <% } %>
-<% } else { %>
-  <h2>Getting more</h2>
-  <p>You can buy this medicine from a pharmacy or supermarket.</p>
 <% } %>
 <%- include('../partials/foot') %>

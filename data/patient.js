@@ -117,14 +117,20 @@ module.exports = {
     },
   ],
 
+  // When the list was last brought up to date from the doctor's record.
+  medicationsLastUpdated: '2026-11-06T07:45:00',
+
+  // source: 'record' = from the doctor's record, 'patient' = added by the patient.
   medications: [
     {
       resourceType: 'MedicationRequest',
       id: 'm1',
       status: 'active',
+      source: 'record',
       medication: 'Atorvastatin',
       strength: '20mg tablets',
       reason: 'To lower your cholesterol',
+      requester: 'Dr Anna Kowalski',
       dosageInstruction: 'Take 1 tablet every evening.',
       warning: 'Avoid drinking a lot of grapefruit juice while taking this medicine.',
       repeat: { nextDue: '2026-11-18', remaining: 3 },
@@ -133,22 +139,54 @@ module.exports = {
       resourceType: 'MedicationRequest',
       id: 'm2',
       status: 'active',
+      source: 'record',
       medication: 'Ramipril',
       strength: '5mg capsules',
       reason: 'To lower your blood pressure',
+      requester: 'Dr Helen Marsh',
       dosageInstruction: 'Take 1 capsule every morning.',
       warning: 'Tell your doctor if you get a dry cough that does not go away.',
       repeat: { nextDue: '2026-11-09', remaining: 1 },
     },
     {
       resourceType: 'MedicationRequest',
+      id: 'm4',
+      status: 'active',
+      source: 'record',
+      medication: 'Omeprazole',
+      strength: '20mg capsules',
+      reason: 'To protect your stomach',
+      requester: 'Dr Anna Kowalski',
+      dosageInstruction: 'Take 1 capsule every morning before breakfast.',
+      repeat: { nextDue: '2026-12-02', remaining: 4 },
+    },
+    {
+      resourceType: 'MedicationStatement',
       id: 'm3',
       status: 'active',
+      source: 'patient',
+      addedOn: '2026-10-20',
       medication: 'Paracetamol',
       strength: '500mg tablets',
       reason: 'For pain when you need it',
-      dosageInstruction:
-        'Take 1 or 2 tablets up to 4 times a day. Leave at least 4 hours between doses. Do not take more than 8 tablets in 24 hours.',
+      dosageInstruction: 'Take 1 or 2 tablets when needed, up to 4 times a day.',
+    },
+  ],
+
+  // What the next "Update my list" will find in the doctor's record. Demo only.
+  pendingRecordChanges: [
+    {
+      resourceType: 'MedicationRequest',
+      id: 'm5',
+      status: 'active',
+      source: 'record',
+      medication: 'Amlodipine',
+      strength: '5mg tablets',
+      reason: 'To lower your blood pressure',
+      requester: 'Dr Helen Marsh',
+      dosageInstruction: 'Take 1 tablet every morning.',
+      repeat: { nextDue: '2026-12-04', remaining: 5 },
+      changeNote: 'New from your doctor',
     },
   ],
 };

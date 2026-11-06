@@ -1,0 +1,15 @@
+<li>
+  <a class="med-row" href="/medicines/<%= m.id %>">
+    <span class="med-name"><%= m.medication %></span>
+    <span class="med-detail">
+      <% if (m.reason) { %><span class="med-for"><%= m.reason %></span><% } %>
+      <% if (m.source !== 'patient') { %><span class="med-from">From <%= m.requester %></span><% } %>
+    </span>
+    <% m.flags.forEach(f => { %>
+      <span class="flag flag-<%= f.level %>">
+        <span class="flag-icon" aria-hidden="true"><%= f.level === 'action' ? '!' : '' %></span>
+        <span><span class="visually-hidden"><%= f.level === 'action' ? 'Action needed: ' : 'Note: ' %></span><%= f.text %></span>
+      </span>
+    <% }) %>
+  </a>
+</li>

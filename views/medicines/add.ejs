@@ -1,0 +1,42 @@
+<%- include('../partials/head', { back: { href: '/', label: 'Your medicines' } }) %>
+
+<% if (errors) { %>
+  <div class="error-summary" role="alert" aria-labelledby="error-title" tabindex="-1">
+    <h2 id="error-title">There is a problem</h2>
+    <ul role="list">
+      <% Object.entries(errors).forEach(([field, msg]) => { %>
+        <li><a href="#<%= field %>"><%= msg %></a></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<h1>Add a medicine</h1>
+<p class="lead">Add anything else you take, such as medicines you buy yourself, vitamins or herbal remedies. Your doctor will be able to see it.</p>
+
+<form method="post" action="/medicines/add" novalidate>
+  <div class="field <%= errors && errors.name ? 'field-error' : '' %>">
+    <label for="name">Name of the medicine</label>
+    <% if (errors && errors.name) { %>
+      <p class="error-message" id="name-error"><span class="visually-hidden">Error: </span><%= errors.name %></p>
+    <% } %>
+    <input id="name" name="name" type="text" autocomplete="off" spellcheck="false"
+      value="<%= values.name || '' %>"
+      <% if (errors && errors.name) { %>aria-invalid="true" aria-describedby="name-error"<% } %>>
+  </div>
+
+  <div class="field">
+    <label for="reason">What do you take it for? <span class="optional">(optional)</span></label>
+    <p class="hint" id="reason-hint">For example, hay fever</p>
+    <input id="reason" name="reason" type="text" aria-describedby="reason-hint" value="<%= values.reason || '' %>">
+  </div>
+
+  <div class="field">
+    <label for="dose">How do you take it? <span class="optional">(optional)</span></label>
+    <p class="hint" id="dose-hint">For example, 1 tablet each morning</p>
+    <input id="dose" name="dose" type="text" aria-describedby="dose-hint" value="<%= values.dose || '' %>">
+  </div>
+
+  <button class="button" type="submit">Add to my list</button>
+</form>
+<%- include('../partials/foot') %>

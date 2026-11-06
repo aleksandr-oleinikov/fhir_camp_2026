@@ -1,44 +1,39 @@
 <%- include('partials/head') %>
-<h1>Hello <%= patientName %></h1>
-<p class="lead">What would you like to do?</p>
+<h1>Hi <%= patientName %>!</h1>
 
-<ul class="cards" role="list">
-  <li>
-    <a class="card" href="/appointments">
-      <span class="card-title">Appointments</span>
-      <span class="card-text">
-        <% if (summary.nextAppointment) { %>
-          Next: <%= summary.nextAppointment.serviceType.toLowerCase() %>,
-          <%= formatDate(summary.nextAppointment.start) %>
-        <% } else { %>
-          You have no upcoming appointments
-        <% } %>
-      </span>
-    </a>
-  </li>
-  <li>
-    <a class="card" href="/results">
-      <span class="card-title">Test results</span>
-      <span class="card-text">
-        <% if (summary.resultsToCheck) { %>
-          <%= summary.resultsToCheck %> <%= summary.resultsToCheck === 1 ? 'result has' : 'results have' %> a note from your doctor
-        <% } else { %>
-          See your latest results
-        <% } %>
-      </span>
-    </a>
-  </li>
-  <li>
-    <a class="card" href="/medicines">
-      <span class="card-title">Medicines</span>
-      <span class="card-text">
-        <% if (summary.repeatsDue) { %>
-          <%= summary.repeatsDue %> repeat <%= summary.repeatsDue === 1 ? 'prescription' : 'prescriptions' %> due soon
-        <% } else { %>
-          See your medicines and order repeats
-        <% } %>
-      </span>
-    </a>
-  </li>
-</ul>
+<% if (notice) { %>
+  <div class="panel panel-success" role="status"><p><%= notice %></p></div>
+<% } %>
+
+<% if (attention.length) { %>
+  <section class="attention" aria-labelledby="attention-heading">
+    <h2 id="attention-heading">Needs your attention</h2>
+    <ul class="med-list" role="list">
+      <% attention.forEach(m => { %><%- include('partials/med-row', { m }) %><% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<% if (others.length) { %>
+  <section aria-labelledby="others-heading">
+    <h2 id="others-heading"><%= attention.length ? 'Your other medicines' : 'Your medicines' %></h2>
+    <ul class="med-list" role="list">
+      <% others.forEach(m => { %><%- include('partials/med-row', { m }) %><% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<div class="actions">
+  <form method="post" action="/medicines/update">
+    <button class="action-tile" type="submit">
+      <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9M18.5 3v4.2h-4.2M5.5 21v-4.2h4.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Update my list
+    </button>
+  </form>
+  <a class="action-tile action-tile-secondary" href="/medicines/add">
+    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    Add a medicine
+  </a>
+</div>
+<p class="updated-note">List last updated from your doctor's record <%= formatWhen(lastUpdated) %>.</p>
 <%- include('partials/foot') %>
