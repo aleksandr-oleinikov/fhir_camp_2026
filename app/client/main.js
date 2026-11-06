@@ -6,6 +6,7 @@
 
 const { createState, handle } = require('../lib/core');
 const templates = require('../build/templates');
+const assets = require('../build/assets'); // public/img files as data: URLs
 
 const STORAGE_KEY = 'medicines-demo-state-v2';
 
@@ -68,7 +69,7 @@ async function request(method, url, body) {
 }
 
 function paint(result, moveFocus) {
-  const html = render(result.view, { ...result.locals, demo: true });
+  const html = render(result.view, { ...result.locals, demo: true, asset: (file) => assets[file] || '' });
   const doc = new DOMParser().parseFromString(html, 'text/html');
   document.title = doc.title;
   document.body.innerHTML = doc.body.innerHTML;

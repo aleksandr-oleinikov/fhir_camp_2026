@@ -10,14 +10,16 @@ module.exports = {
 
   // Buttons on the "Connect to payer" screen, in reading order (two columns,
   // as in the wireframe). Only those with a patient id lead anywhere.
+  // logo: a file in public/, shown instead of the name. logoBg: tile colour
+  // matching the logo's own background. logoFill: image spans the tile's width.
   payers: [
-    { id: 'aetna', name: 'Aetna' },
-    { id: 'e-prescription', name: 'National E-prescription' },
-    { id: 'health-first', name: 'Health First' },
-    { id: 'nhs', name: 'NHS' },
-    { id: 'cigna', name: 'Cigna' },
-    { id: 'medicare', name: 'Blue Button CMS', detail: 'Medicare data', patientId: '-10000010254618' },
-    { id: 'epic', name: 'Epic', patientId: 'erXuFYUfucBZaryVksYEcMg3' },
+    { id: 'aetna', name: 'Aetna', logo: 'img/payers/aetna.webp' },
+    { id: 'e-prescription', name: 'National E-prescription', logo: 'img/payers/e-prescription.webp' },
+    { id: 'health-first', name: 'Health First', logo: 'img/payers/health-first.webp' },
+    { id: 'nhs', name: 'NHS', logo: 'img/payers/nhs.webp', logoBg: '#005eb6' },
+    { id: 'cigna', name: 'Cigna', logo: 'img/payers/cigna.webp', logoBg: '#0033ff' },
+    { id: 'medicare', name: 'Blue Button CMS', detail: 'Medicare data', patientId: '-10000010254618', logo: 'img/payers/medicare.webp', logoBg: 'linear-gradient(90deg, #0b8fc2, #4d4fce)', logoFill: true },
+    { id: 'epic', name: 'Epic', patientId: 'erXuFYUfucBZaryVksYEcMg3', logo: 'img/payers/epic.webp' },
   ],
 
   // FHIR has no phone numbers for prescribers, so call buttons use this.

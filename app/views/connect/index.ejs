@@ -14,13 +14,12 @@
   <% payers.forEach(p => { %>
     <li>
       <% if (p.patientId) { %>
-        <a class="payer" href="/connect/<%= p.id %>">
-          <span class="payer-name"><%= p.name %></span>
-          <% if (p.detail) { %><span class="payer-detail">(<%= p.detail %>)</span><% } %>
+        <a class="payer <%= p.logo ? 'payer-has-logo' : '' %> <%= p.logoFill ? 'payer-fill' : '' %>"<% if (p.logoBg) { %> style="background: <%= p.logoBg %>"<% } %> href="/connect/<%= p.id %>">
+          <% if (p.logo) { %><img class="payer-logo" src="<%= asset(p.logo) %>" alt="<%= p.name %>"><% } else { %><span class="payer-name"><%= p.name %></span><% } %>
         </a>
       <% } else { %>
-        <button class="payer" type="button" aria-disabled="true">
-          <span class="payer-name"><%= p.name %></span>
+        <button class="payer <%= p.logo ? 'payer-has-logo' : '' %> <%= p.logoFill ? 'payer-fill' : '' %>"<% if (p.logoBg) { %> style="background: <%= p.logoBg %>"<% } %> type="button" aria-disabled="true">
+          <% if (p.logo) { %><img class="payer-logo" src="<%= asset(p.logo) %>" alt="<%= p.name %>"><% } else { %><span class="payer-name"><%= p.name %></span><% } %>
           <span class="visually-hidden">(not available in this demo)</span>
         </button>
       <% } %>

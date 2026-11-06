@@ -102,6 +102,8 @@ function baseLocals(state) {
     patientName: state.record.patient.name[0].given[0],
     usesFhir: usesFhir(state),
     signedIn: Boolean(state.source),
+    // URL for a file in public/. The static build swaps this for embedded data.
+    asset: (file) => `/${file}`,
   };
 }
 
