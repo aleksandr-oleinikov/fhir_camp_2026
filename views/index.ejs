@@ -9,16 +9,19 @@
   <h2 class="section-heading">
     <%= conflicts.length === 1 ? 'Some of your medicines may not mix well' : `${conflicts.length} pairs of your medicines may not mix well` %>
   </h2>
-  <p>Tap a medicine to find out what to do.</p>
+  <p>Tap the warning marks to find out what to do.</p>
   <% conflicts.forEach((c, i) => { %>
     <section class="conflict conflict-<%= c.severity %>" aria-labelledby="conflict-<%= i %>">
       <h3 class="conflict-heading" id="conflict-<%= i %>">
-        <%- include('partials/severity', { level: c.severity }) %>
-        <span class="visually-hidden"><%= c.meds[0].medication %> and <%= c.meds[1].medication %> may not mix well.</span>
-        <span class="conflict-advice"><%= c.severityInfo.advice %></span>
+        <a class="conflict-open" href="/conflicts/<%= c.id %>">
+          <%- include('partials/severity', { level: c.severity }) %>
+          <span class="visually-hidden"><%= c.meds[0].medication %> and <%= c.meds[1].medication %> may not mix well.</span>
+          <span class="conflict-advice"><%= c.severityInfo.advice %></span>
+          <span class="conflict-chevron" aria-hidden="true">›</span>
+        </a>
       </h3>
       <ul class="med-list" role="list">
-        <% c.meds.forEach(m => { %><%- include('partials/med-row', { m, href: `/conflicts/${c.id}?from=${m.id}` }) %><% }) %>
+        <% c.meds.forEach(m => { %><%- include('partials/med-row', { m }) %><% }) %>
       </ul>
     </section>
   <% }) %>

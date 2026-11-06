@@ -147,14 +147,23 @@ app.get('/', (req, res) => {
   });
 });
 
+// Conflict summary (wireframe 3): reached by tapping the "!" marks.
 app.get('/conflicts/:id', (req, res) => {
   const conflict = findConflicts().find((c) => c.id === req.params.id);
   if (!conflict) return res.status(404).render('404', { title: 'Page not found' });
-  // Show the medicine the patient tapped first.
+  res.render('conflicts/summary', {
+    title: `${conflict.meds[0].medication} and ${conflict.meds[1].medication}`,
+    conflict,
+  });
+});
+
+// Fuller conflict page. Kept, but not linked from anywhere yet.
+app.get('/conflicts/:id/more', (req, res) => {
+  const conflict = findConflicts().find((c) => c.id === req.params.id);
+  if (!conflict) return res.status(404).render('404', { title: 'Page not found' });
   const meds = [...conflict.meds].sort((a) => (a.id === req.query.from ? -1 : 1));
-  const names = meds.map((m) => m.medication);
   res.render('conflicts/detail', {
-    title: `${names[0]} and ${names[1]}`,
+    title: `${meds[0].medication} and ${meds[1].medication}`,
     conflict: { ...conflict, meds },
     practice: record.patient.practice,
   });

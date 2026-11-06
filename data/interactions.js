@@ -8,6 +8,8 @@ module.exports = [
     id: 'ramipril-ibuprofen',
     severity: 2,
     medicines: ['ramipril', 'ibuprofen'],
+    summary:
+      'These 2 medicines interact. Talk to your doctor or a pharmacist about finding a different painkiller.',
     whatCouldHappen:
       'Ibuprofen can stop ramipril lowering your blood pressure as well as it should. Taking them together can also harm your kidneys.',
     whatToDo: [
@@ -20,6 +22,8 @@ module.exports = [
     id: 'atorvastatin-clarithromycin',
     severity: 3,
     medicines: ['atorvastatin', 'clarithromycin'],
+    summary:
+      'These 2 medicines interact. You need to talk to your doctors today about finding alternatives.',
     whatCouldHappen:
       'Clarithromycin raises the amount of atorvastatin in your blood. This can cause muscle pain and, rarely, serious muscle damage.',
     whatToDo: [
@@ -32,6 +36,8 @@ module.exports = [
     id: 'atorvastatin-amlodipine',
     severity: 1,
     medicines: ['atorvastatin', 'amlodipine'],
+    summary:
+      'These 2 medicines interact slightly. You do not need to change anything, but mention it next time you see your doctor.',
     whatCouldHappen:
       'Amlodipine can slightly raise the amount of atorvastatin in your blood. At your doses this is usually not a problem.',
     whatToDo: [

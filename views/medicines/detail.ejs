@@ -12,7 +12,7 @@
 
 <% conflicts.forEach(c => { %>
   <% const other = c.meds.find(x => x.id !== med.id); %>
-  <a class="conflict-link conflict-<%= c.severity %>" href="/conflicts/<%= c.id %>?from=<%= med.id %>">
+  <a class="conflict-link conflict-<%= c.severity %>" href="/conflicts/<%= c.id %>">
     <%- include('../partials/severity', { level: c.severity }) %>
     <span>May not mix well with <strong><%= other.medication %></strong>. Find out what to do.</span>
   </a>
