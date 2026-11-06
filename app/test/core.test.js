@@ -23,13 +23,15 @@ test.beforeEach(() => {
   global.fetch = server.fetch;
 });
 
-test('starts on Connect to payer, and only Epic and Medicare lead anywhere', async () => {
+test('starts on Connect to data source, and only Epic and Medicare lead anywhere', async () => {
   const s = createState();
   assert.deepEqual(await page(s, 'GET', '/'), { redirect: '/connect' });
   const landing = await page(s, 'GET', '/connect');
-  assert.match(landing.html, /Connect to payer/);
-  assert.equal((landing.html.match(/aria-disabled="true"/g) || []).length, 5);
-  assert.equal((await page(s, 'GET', '/connect/aetna')).status, 404);
+  assert.match(landing.html, /Connect to data source/);
+  assert.match(landing.html, /Add data source/);
+  assert.match(landing.html, /href="\/connect">Connect a data source</, 'menu links back here');
+  assert.equal((landing.html.match(/<button class="payer/g) || []).length, 6, "inactive tiles");
+  assert.equal((await page(s, 'GET', '/connect/bupa')).status, 404);
   assert.match((await page(s, 'GET', '/connect/medicare')).html, /Sign in to Blue Button CMS/);
 });
 

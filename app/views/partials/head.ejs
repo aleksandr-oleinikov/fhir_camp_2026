@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title><%= title %> – Your health</title>
+  <title><%= title %> – Pill Sorter</title>
   <link rel="stylesheet" href="/css/reset.css">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -12,12 +12,13 @@
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header">
     <div class="wrap header-bar">
-      <a class="site-name" href="/">Your health</a>
+      <a class="site-name" href="/">Pill Sorter</a>
       <details class="menu">
         <summary><span class="menu-icon" aria-hidden="true"></span>Menu</summary>
         <nav aria-label="Main">
           <ul role="list">
             <li><a href="/">Your medicines</a></li>
+            <li><a href="/connect">Connect a data source</a></li>
             <% if (typeof signedIn === 'undefined' || signedIn) { %>
               <li><form method="post" action="/sign-out"><button class="menu-link" type="submit">Sign out</button></form></li>
             <% } %>

@@ -1,0 +1,30 @@
+<%# Small picture of what the medicine looks like. form: tablet | capsule | liquid | inhaled | generic.
+    Decorative: the strength text already says the form. %>
+<span class="med-icon med-icon-<%= form %>" aria-hidden="true">
+  <svg viewBox="0 0 32 32" focusable="false">
+    <% if (form === 'tablet') { %>
+      <circle cx="13" cy="15" r="8" fill="var(--icon-fill)" stroke="currentColor" stroke-width="2"/>
+      <path d="M8 15h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="22.5" cy="22" r="5.5" fill="var(--surface)" stroke="currentColor" stroke-width="2"/>
+      <path d="M19.5 22h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <% } else if (form === 'capsule') { %>
+      <g transform="rotate(-40 16 16)">
+        <rect x="4" y="11" width="24" height="10" rx="5" fill="var(--surface)" stroke="currentColor" stroke-width="2"/>
+        <path d="M16 11h-7a5 5 0 0 0 0 10h7z" fill="var(--icon-fill)" stroke="currentColor" stroke-width="2"/>
+      </g>
+    <% } else if (form === 'liquid') { %>
+      <rect x="12" y="3" width="8" height="5" rx="1" fill="currentColor"/>
+      <path d="M11 8h10v3l3 3v13a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V14l3-3z" fill="var(--surface)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M9 19h14v8a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1z" fill="var(--icon-fill)"/>
+    <% } else if (form === 'inhaled') { %>
+      <rect x="9" y="3" width="9" height="16" rx="3" fill="var(--icon-fill)" stroke="currentColor" stroke-width="2"/>
+      <path d="M7 17h13v6h6v5H10a3 3 0 0 1-3-3z" fill="var(--surface)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M28 21.5c1 .7 1 2.3 0 3M28 18.5c2 1.5 2 6.5 0 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <% } else { %>
+      <rect x="8" y="3" width="16" height="6" rx="1.5" fill="currentColor"/>
+      <rect x="7" y="9" width="18" height="20" rx="3" fill="var(--surface)" stroke="currentColor" stroke-width="2"/>
+      <rect x="10" y="14" width="12" height="10" rx="1" fill="var(--icon-fill)"/>
+      <path d="M16 16.5v5M13.5 19h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <% } %>
+  </svg>
+</span>

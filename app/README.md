@@ -2,7 +2,7 @@
 
 A mobile-first web app for patients. It lists their medicines, groups any pairs that may not mix well with a 1 to 3 "!" severity, and lets them add medicines they buy over the counter.
 
-It opens on "Connect to payer". Epic and Blue Button CMS lead to a fake sign-in (any username and password) and then load a synthetic patient's medicines from a FHIR test server. The other payer buttons do nothing. Medicines the patient adds are written back to that server as `MedicationStatement`s, and "Reset the demo" deletes them again.
+It opens on "Connect to data source". Epic and Blue Button CMS lead to a fake sign-in (any username and password) and then load a synthetic patient's medicines from a FHIR test server. The other payer buttons do nothing. Medicines the patient adds are written back to that server as `MedicationStatement`s, and "Reset the demo" deletes them again.
 
 The conflict wording and severity levels are placeholders and have not been clinically reviewed.
 

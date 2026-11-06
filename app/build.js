@@ -68,7 +68,7 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
-<title>Your health – demo</title>
+<title>Pill Sorter – demo</title>
 <style>${css}</style>
 <script>${js.replace(/<\/script/gi, '<\\/script')}</script>
 </head>
