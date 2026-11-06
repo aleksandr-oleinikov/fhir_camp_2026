@@ -5,18 +5,28 @@
   <div class="panel panel-success" role="status"><p><%= notice %></p></div>
 <% } %>
 
-<% if (attention.length) { %>
-  <section class="attention" aria-labelledby="attention-heading">
-    <h2 id="attention-heading">Needs your attention</h2>
-    <ul class="med-list" role="list">
-      <% attention.forEach(m => { %><%- include('partials/med-row', { m }) %><% }) %>
-    </ul>
-  </section>
+<% if (conflicts.length) { %>
+  <h2 class="section-heading">
+    <%= conflicts.length === 1 ? 'Some of your medicines may not mix well' : `${conflicts.length} pairs of your medicines may not mix well` %>
+  </h2>
+  <p>Tap a medicine to find out what to do.</p>
+  <% conflicts.forEach((c, i) => { %>
+    <section class="conflict conflict-<%= c.severity %>" aria-labelledby="conflict-<%= i %>">
+      <h3 class="conflict-heading" id="conflict-<%= i %>">
+        <%- include('partials/severity', { level: c.severity }) %>
+        <span class="visually-hidden"><%= c.meds[0].medication %> and <%= c.meds[1].medication %> may not mix well.</span>
+        <span class="conflict-advice"><%= c.severityInfo.advice %></span>
+      </h3>
+      <ul class="med-list" role="list">
+        <% c.meds.forEach(m => { %><%- include('partials/med-row', { m, href: `/conflicts/${c.id}?from=${m.id}` }) %><% }) %>
+      </ul>
+    </section>
+  <% }) %>
 <% } %>
 
 <% if (others.length) { %>
   <section aria-labelledby="others-heading">
-    <h2 id="others-heading"><%= attention.length ? 'Your other medicines' : 'Your medicines' %></h2>
+    <h2 id="others-heading" class="section-heading"><%= conflicts.length ? 'Your other medicines' : 'Your medicines' %></h2>
     <ul class="med-list" role="list">
       <% others.forEach(m => { %><%- include('partials/med-row', { m }) %><% }) %>
     </ul>
@@ -36,4 +46,18 @@
   </a>
 </div>
 <p class="updated-note">List last updated from your doctor's record <%= formatWhen(lastUpdated) %>.</p>
+
+<% if (conflicts.length) { %>
+  <section class="key" aria-labelledby="key-heading">
+    <h2 id="key-heading">What the warning marks mean</h2>
+    <dl>
+      <% [3, 2, 1].forEach(level => { %>
+        <div>
+          <dt><%- include('partials/severity', { level }) %></dt>
+          <dd><%= SEVERITY[level].advice %></dd>
+        </div>
+      <% }) %>
+    </dl>
+  </section>
+<% } %>
 <%- include('partials/foot') %>

@@ -1,6 +1,7 @@
 const path = require('node:path');
 const express = require('express');
 const record = require('./data/patient');
+const interactions = require('./data/interactions');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -81,33 +82,42 @@ function toResult(o) {
 const repeatRequests = new Set();
 let nextId = 100;
 
-// Flags drive the "Needs your attention" group.
-// level 'action' = the patient needs to do something (wireframe "!")
-// level 'info'   = something changed or is unchecked (wireframe "o")
+// Severity scale from wireframe 2: one to three "!" marks.
+const SEVERITY = {
+  3: { label: 'Serious', advice: 'Act today' },
+  2: { label: 'Moderate', advice: 'Check with a pharmacist or doctor soon' },
+  1: { label: 'Minor', advice: 'Good to know' },
+};
+app.locals.SEVERITY = SEVERITY;
+
+// Small, non-alarming tags. "!" is kept for conflicts only.
 function toMedicine(m) {
-  const flags = [];
+  const tags = [];
   const requested = repeatRequests.has(m.id);
-  if (m.repeat && !requested) {
-    if (m.repeat.remaining === 0) {
-      flags.push({ level: 'action', text: 'Your doctor needs to review this before your next repeat' });
-    } else if (daysFromToday(m.repeat.nextDue) <= 7) {
-      flags.push({ level: 'action', text: `Repeat due ${formatDate(m.repeat.nextDue)}` });
-    }
+  if (m.repeat && !requested && daysFromToday(m.repeat.nextDue) <= 7) {
+    tags.push({ tone: 'neutral', text: `Repeat due ${formatDate(m.repeat.nextDue)}` });
   }
-  if (m.changeNote) flags.push({ level: 'info', text: m.changeNote });
-  if (m.source === 'patient') {
-    flags.push({ level: 'info', text: 'Added by you. Your doctor has not checked it yet.' });
-  }
-  const level = flags.some((f) => f.level === 'action') ? 'action' : flags.length ? 'info' : null;
-  return { ...m, flags, level, requested };
+  if (m.changeNote) tags.push({ tone: 'neutral', text: m.changeNote });
+  if (m.source === 'patient') tags.push({ tone: 'neutral', text: 'Bought by you' });
+  return { ...m, tags, requested };
 }
 
 function activeMedicines() {
-  const order = { action: 0, info: 1 };
   return record.medications
     .filter((m) => m.status === 'active')
     .map(toMedicine)
-    .sort((a, b) => (order[a.level] ?? 2) - (order[b.level] ?? 2) || a.medication.localeCompare(b.medication));
+    .sort((a, b) => a.medication.localeCompare(b.medication));
+}
+
+const matchKey = (name) => name.trim().split(/\s+/)[0].toLowerCase();
+
+// Every rule whose two medicines are both on the active list, most serious first.
+function findConflicts(meds = activeMedicines()) {
+  const byKey = new Map(meds.map((m) => [matchKey(m.medication), m]));
+  return interactions
+    .filter((r) => r.medicines.every((k) => byKey.has(k)))
+    .map((r) => ({ ...r, meds: r.medicines.map((k) => byKey.get(k)), severityInfo: SEVERITY[r.severity] }))
+    .sort((a, b) => b.severity - a.severity);
 }
 
 function findOr404(list, id, res) {
@@ -126,12 +136,27 @@ app.get('/', (req, res) => {
   const added = req.query.added && record.medications.find((m) => m.id === req.query.added);
   if (added) notice = `${added.medication} has been added to your list.`;
 
+  const conflicts = findConflicts(meds);
+  const inConflict = new Set(conflicts.flatMap((c) => c.meds.map((m) => m.id)));
   res.render('index', {
     title: 'Your medicines',
-    attention: meds.filter((m) => m.level),
-    others: meds.filter((m) => !m.level),
+    conflicts,
+    others: meds.filter((m) => !inConflict.has(m.id)),
     lastUpdated: record.medicationsLastUpdated,
     notice,
+  });
+});
+
+app.get('/conflicts/:id', (req, res) => {
+  const conflict = findConflicts().find((c) => c.id === req.params.id);
+  if (!conflict) return res.status(404).render('404', { title: 'Page not found' });
+  // Show the medicine the patient tapped first.
+  const meds = [...conflict.meds].sort((a) => (a.id === req.query.from ? -1 : 1));
+  const names = meds.map((m) => m.medication);
+  res.render('conflicts/detail', {
+    title: `${names[0]} and ${names[1]}`,
+    conflict: { ...conflict, meds },
+    practice: record.patient.practice,
   });
 });
 
@@ -181,6 +206,7 @@ app.get('/medicines/:id', (req, res) => {
     res.render('medicines/detail', {
       title: m.medication,
       med: toMedicine(m),
+      conflicts: findConflicts().filter((c) => c.meds.some((x) => x.id === m.id)),
       justRequested: req.query.requested === '1',
     });
   }

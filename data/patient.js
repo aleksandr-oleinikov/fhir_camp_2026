@@ -9,6 +9,7 @@ module.exports = {
     id: 'p1',
     name: [{ given: ['Sam'], family: 'Okafor' }],
     birthDate: '1958-03-21',
+    practice: { name: 'Riverside Health Centre', phone: '0113 496 0000' },
   },
 
   appointments: [
@@ -170,6 +171,29 @@ module.exports = {
       strength: '500mg tablets',
       reason: 'For pain when you need it',
       dosageInstruction: 'Take 1 or 2 tablets when needed, up to 4 times a day.',
+    },
+    {
+      resourceType: 'MedicationStatement',
+      id: 'm6',
+      status: 'active',
+      source: 'patient',
+      addedOn: '2026-11-03',
+      medication: 'Ibuprofen',
+      strength: '200mg tablets',
+      reason: 'For back pain',
+      dosageInstruction: 'Take 1 or 2 tablets up to 3 times a day.',
+    },
+    {
+      resourceType: 'MedicationRequest',
+      id: 'm7',
+      status: 'active',
+      source: 'record',
+      medication: 'Clarithromycin',
+      strength: '500mg tablets',
+      reason: 'For a chest infection',
+      requester: 'Dr Sara Ali, out-of-hours service',
+      dosageInstruction: 'Take 1 tablet twice a day for 7 days.',
+      changeNote: 'Started Wednesday 4 November',
     },
   ],
 

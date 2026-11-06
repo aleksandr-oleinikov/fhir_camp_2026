@@ -1,0 +1,33 @@
+<%- include('../partials/head', { back: { href: '/', label: 'Your medicines' } }) %>
+
+<p><%- include('../partials/severity', { level: conflict.severity }) %></p>
+<h1><%= conflict.meds[0].medication %> and <%= conflict.meds[1].medication %> may not mix well</h1>
+
+<ul class="pair" role="list">
+  <% conflict.meds.forEach((m, i) => { %>
+    <li class="pair-item">
+      <span class="pair-name"><%= m.medication %></span>
+      <% if (m.strength) { %><span class="pair-meta"><%= m.strength %></span><% } %>
+      <span class="pair-meta"><%= m.source === 'patient' ? 'Bought by you' : 'From ' + m.requester %></span>
+      <a href="/medicines/<%= m.id %>">More about <%= m.medication.toLowerCase() %></a>
+    </li>
+    <% if (i === 0) { %><li class="pair-join" aria-hidden="true">+</li><% } %>
+  <% }) %>
+</ul>
+
+<section class="panel <%= conflict.severity >= 2 ? 'panel-important' : '' %>" aria-labelledby="todo">
+  <h2 id="todo">What to do</h2>
+  <ol class="steps">
+    <% conflict.whatToDo.forEach(step => { %><li><%= step %></li><% }) %>
+  </ol>
+</section>
+
+<h2>What could happen</h2>
+<p><%= conflict.whatCouldHappen %></p>
+
+<% if (conflict.severity >= 2) { %>
+  <h2>Talk to someone</h2>
+  <p>A pharmacist can help with most questions about medicines, without an appointment. Or call your doctor's surgery.</p>
+  <p><a class="button" href="tel:<%= practice.phone.replace(/\s/g, '') %>">Call <%= practice.name %></a></p>
+<% } %>
+<%- include('../partials/foot') %>

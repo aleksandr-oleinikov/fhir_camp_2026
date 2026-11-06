@@ -1,0 +1,4 @@
+<span class="severity severity-<%= level %>">
+  <span class="severity-marks" aria-hidden="true"><% for (let i = 0; i < level; i++) { %><span class="mark">!</span><% } %></span>
+  <span class="severity-label"><%= SEVERITY[level].label %></span>
+</span>
