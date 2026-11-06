@@ -1,55 +1,55 @@
-# Проверка взаимодействий лекарств: backend
+# Drug interaction checks: backend
 
-Сервис по запросу UI ([демо](https://aleksandr-oleinikov.github.io/fhir_camp_2026/)) сам забирает из Aidbox аптечные `ExplanationOfBenefit` пациента. Из них он собирает лекарства, которые пациент принимает сейчас, проверяет весь список в Scholz DataBank и возвращает пары, которые плохо сочетаются.
+When the UI ([demo](https://aleksandr-oleinikov.github.io/fhir_camp_2026/)) asks, the service reads the patient's pharmacy `ExplanationOfBenefit` resources from Aidbox itself. It builds the list of medicines the patient takes now, checks the whole list in Scholz DataBank and returns the pairs that may not mix well.
 
-## 1. Вход
+## 1. Input
 
-| Вызов | Что делает |
+| Call | What it does |
 | --- | --- |
-| `GET /patients/{id}/interactions?asOf=YYYY-MM-DD` | Проверка списка лекарств. Параметр `asOf` задаёт дату, на которую лекарство считается текущим; по умолчанию сегодня |
-| `GET /patients/{id}/interactions/{interactionCode}` | Полный текст по одному взаимодействию, когда пользователь открывает алерт |
+| `GET /patients/{id}/interactions?asOf=YYYY-MM-DD` | Checks the medicine list. `asOf` is the date on which a medicine counts as current; defaults to today |
+| `GET /patients/{id}/interactions/{interactionCode}` | Full text for one interaction, when the user opens the alert |
 
-Переменные окружения: `AIDBOX_URL`, `AIDBOX_CLIENT_ID`, `AIDBOX_CLIENT_SECRET`, `SCHOLZ_UCI`.
+Environment variables: `AIDBOX_URL`, `AIDBOX_CLIENT_ID`, `AIDBOX_CLIENT_SECRET`, `SCHOLZ_UCI`.
 
-## 2. Шаги
+## 2. Steps
 
-Ниже `SDB` = `https://rest.scholzdatabank.com/ditwebservices`. Ко всем вызовам Scholz добавляется `?format=json`.
+Below, `SDB` = `https://rest.scholzdatabank.com/ditwebservices`. Every Scholz call gets `?format=json`.
 
-1. **EOB из Aidbox.** `GET {AIDBOX_URL}/fhir/ExplanationOfBenefit?patient=Patient/{id}&_count=100`, дальше по `link` с `relation = next`. В коде оставить EOB, у которых в `type.coding` есть `http://terminology.hl7.org/CodeSystem/claim-type` с кодом `pharmacy`, а `status` не `cancelled` и не `entered-in-error`.
-2. **Отпуски.** Из каждого `item` взять:
-   * NDC из `productOrService.coding` с system `http://hl7.org/fhir/sid/ndc` (11 цифр);
-   * дату отпуска `servicedDate`;
-   * запас в днях из `supportingInfo`, где `category.coding.code = dayssupply`, поле `valueQuantity.value`.
-3. **Текущие лекарства.** Отпуск текущий, если `servicedDate <= asOf < servicedDate + daysSupply`. Отпуски одного лекарства схлопываются по RxCUI (шаг 4), в ответ идёт последний.
-4. **NDC → RxCUI.** `GET https://rxnav.nlm.nih.gov/REST/ndcstatus.json?ndc={ndc}`, поле `ndcStatus.rxcui`. Не использовать `rxcui.json?idtype=NDC`: для NDC, снятых с рынка, он ничего не возвращает, а в выгрузке CMS Blue Button таких 13 из 22. Если статус `UNKNOWN` или `rxcui` пустой, лекарство попадает в `notChecked`.
-5. **Уровень кода.** `GET https://rxnav.nlm.nih.gov/REST/rxcui/{rxcui}/properties.json`, поле `properties.tty` должно быть `SCD` или `SBD`. RxCUI вещества Scholz не принимает.
-6. **Есть ли лекарство в Scholz.** `GET {SDB}/distinctdrugsbyrxcui/{UCI}/{rxcui}`. При `ErrorCode = 1` сохранить `DrugList[0].DrugCode` (код Scholz вида `Y23723`) и `DrugName`. При `ErrorCode = 2` лекарство попадает в `notChecked`. Этот шаг обязателен: на неизвестный RxCUI проверка не отвечает ошибкой, а возвращает `ErrorCode = 2`, то есть «взаимодействий нет», и это ложный ответ.
-7. **Проверка.** Если найдено 2 лекарства или больше: `GET {SDB}/interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},...`. В запрос идёт весь список текущих лекарств. Имя функции пишется именно так, с `s`.
-8. **Статус.** HTTP всегда 200, результат определяет `ResponseStatus.ErrorCode`: `1` значит взаимодействия есть, `2` значит нет, `8` значит ошибка во входных данных или нет прав. При `8` и при сетевой ошибке сервис ничего не пишет и отвечает UI ошибкой `502`, а не пустым списком.
-9. **Разбор `InteractionListEx`.**
-   * Участники пары: непустые `DrugCode1..4`. Они сопоставляются с лекарствами пациента по `DrugCode` из шага 6.
-   * Одна пара приходит несколькими строками (разная частота, пороги дозы). Строки группируются по `InteractionCcode` и набору `DrugCode`, из группы остаётся строка с наибольшей `severity`.
-   * `severity` для UI: `TrafficLightColor` `red` → 3, `yellow` → 2, любой другой непустой цвет, кроме `green`, → 1. Цвет бывает пустым, тогда по `Relevance`: 5 → 3, 4 → 2, 3 → 1. `Relevance` 1 и 2 и цвет `green` не показываются.
-10. **Запись в Aidbox.** Каждая пара из `conflicts` пишется как `DetectedIssue` (раздел 4) через conditional update: `PUT {AIDBOX_URL}/fhir/DetectedIssue?identifier=urn:fhir-camp-2026:scholz-interaction|{id}-{InteractionCcode}`. Повторная проверка обновляет запись, а не создаёт дубль. `DetectedIssue` этого пациента со статусом `final`, которых нет в новом результате, переводятся в `cancelled`.
-11. **Полный текст.** `GET {SDB}/interactionfulltext/{UCI}/{InteractionCcode}` вызывается только из второго роута. Поля `InteractionFullTextList[0].Mechanism` и `.Management` приходят массивами строк; `$` в тексте означает перенос строки, `$$` новый абзац.
+1. **EOBs from Aidbox.** `GET {AIDBOX_URL}/fhir/ExplanationOfBenefit?patient=Patient/{id}&_count=100`, then follow `link` with `relation = next`. In code, keep EOBs whose `type.coding` has `http://terminology.hl7.org/CodeSystem/claim-type` with code `pharmacy` and whose `status` is neither `cancelled` nor `entered-in-error`.
+2. **Fills.** From each `item` take:
+   * the NDC from `productOrService.coding` with system `http://hl7.org/fhir/sid/ndc` (11 digits);
+   * the fill date, `servicedDate`;
+   * the days supply from the `supportingInfo` entry with `category.coding.code = dayssupply`, field `valueQuantity.value`.
+3. **Current medicines.** A fill is current if `servicedDate <= asOf < servicedDate + daysSupply`. Fills of the same medicine collapse by RxCUI (step 4); the latest one goes into the response.
+4. **NDC to RxCUI.** `GET https://rxnav.nlm.nih.gov/REST/ndcstatus.json?ndc={ndc}`, field `ndcStatus.rxcui`. Do not use `rxcui.json?idtype=NDC`: it returns nothing for NDCs that are off the market, and in the CMS Blue Button export 13 of 22 NDCs are. If the status is `UNKNOWN` or `rxcui` is empty, the medicine goes into `notChecked`.
+5. **Code level.** `GET https://rxnav.nlm.nih.gov/REST/rxcui/{rxcui}/properties.json`; `properties.tty` must be `SCD` or `SBD`. Scholz does not accept ingredient RxCUIs.
+6. **Is the medicine in Scholz.** `GET {SDB}/distinctdrugsbyrxcui/{UCI}/{rxcui}`. On `ErrorCode = 1`, keep `DrugList[0].DrugCode` (a Scholz code such as `Y23723`) and `DrugName`. On `ErrorCode = 2`, the medicine goes into `notChecked`. This step is required: for an unknown RxCUI the interaction check returns no error but `ErrorCode = 2`, meaning "no interactions", which is a false answer.
+7. **Check.** If 2 or more medicines were found: `GET {SDB}/interactionsbyrxcuisex/{UCI}/{rxcui1},{rxcui2},...`. The request carries the whole list of current medicines. The function name is spelled exactly like this, with the `s`.
+8. **Status.** HTTP is always 200; `ResponseStatus.ErrorCode` decides the result: `1` means interactions found, `2` means none, `8` means bad input or no access. On `8` and on a network error the service writes nothing and returns `502` to the UI, not an empty list.
+9. **Parsing `InteractionListEx`.**
+   * The pair's members are the non-empty `DrugCode1..4`. They are matched to the patient's medicines by the `DrugCode` from step 6.
+   * One pair can come back as several rows (different frequency, dose thresholds). Rows are grouped by `InteractionCcode` and the set of `DrugCode`s; the row with the highest `severity` stays.
+   * `severity` for the UI: `TrafficLightColor` `red` → 3, `yellow` → 2, any other non-empty color except `green` → 1. The color can be empty; then use `Relevance`: 5 → 3, 4 → 2, 3 → 1. `Relevance` 1 and 2 and the color `green` are not shown.
+10. **Writing to Aidbox.** Each pair in `conflicts` is written as a `DetectedIssue` (section 4) with a conditional update: `PUT {AIDBOX_URL}/fhir/DetectedIssue?identifier=urn:fhir-camp-2026:scholz-interaction|{id}-{InteractionCcode}`. A repeat check updates the record instead of creating a duplicate. This patient's `DetectedIssue`s with status `final` that are missing from the new result are set to `cancelled`.
+11. **Full text.** `GET {SDB}/interactionfulltext/{UCI}/{InteractionCcode}` is called only from the second route. `InteractionFullTextList[0].Mechanism` and `.Management` come as arrays of strings; `$` in the text is a line break, `$$` a new paragraph.
 
-## 3. Таблица случаев
+## 3. Cases
 
-| Случай | Что отдаёт Scholz или RxNav | Что делает backend |
+| Case | What Scholz or RxNav returns | What the backend does |
 | --- | --- | --- |
-| Взаимодействий нет | `ErrorCode = 2`, пустой список | `conflicts: []`, старые `DetectedIssue` переводятся в `cancelled` |
-| RxCUI неизвестен Scholz | Ошибки нет: `ErrorCode = 2`, как будто взаимодействий нет | Ловится на шаге 6, лекарство в `notChecked` |
-| RxCUI вещества (`tty = IN`) | `ErrorCode = 8`, «Entered RXCUI is not valid» | Ловится на шаге 5, лекарство в `notChecked` |
-| NDC снят с рынка | RxNav `ndcstatus`: `OBSOLETE` с RxCUI | Берётся RxCUI из `ndcstatus` |
-| NDC неизвестен RxNav | `ndcstatus`: `UNKNOWN`, RxCUI пустой | Лекарство в `notChecked`, пример: `00427080094` |
-| Пустой `TrafficLightColor` | `""` | `severity` по `Relevance` |
-| Нет прав по ключу | `ErrorCode = 8`, «Entered UCI doesn't have privileges» | `502`, причина в логе |
-| Сеть или таймаут | Ответа нет | `502`, в Aidbox ничего не пишется |
-| Больше 30 лекарств | URL длиннее 324 символов; на 394 символах Scholz отвечает HTTP 400 | Список делится на части по 15, проверяется каждая пара частей |
+| No interactions | `ErrorCode = 2`, empty list | `conflicts: []`; older `DetectedIssue`s are set to `cancelled` |
+| RxCUI unknown to Scholz | No error: `ErrorCode = 2`, as if there were no interactions | Caught at step 6, medicine in `notChecked` |
+| Ingredient RxCUI (`tty = IN`) | `ErrorCode = 8`, "Entered RXCUI is not valid" | Caught at step 5, medicine in `notChecked` |
+| NDC off the market | RxNav `ndcstatus`: `OBSOLETE` with an RxCUI | Use the RxCUI from `ndcstatus` |
+| NDC unknown to RxNav | `ndcstatus`: `UNKNOWN`, empty RxCUI | Medicine in `notChecked`; example: `00427080094` |
+| Empty `TrafficLightColor` | `""` | `severity` from `Relevance` |
+| Key has no access | `ErrorCode = 8`, "Entered UCI doesn't have privileges" | `502`, reason in the log |
+| Network error or timeout | No response | `502`, nothing written to Aidbox |
+| More than 30 medicines | URL longer than 324 characters; at 394 characters Scholz returns HTTP 400 | Split the list into chunks of 15 and check every pair of chunks |
 
-## 4. Ответ для UI и `DetectedIssue`
+## 4. Response for the UI and `DetectedIssue`
 
-Ответ первого роута:
+Response of the first route:
 
 ```json
 {
@@ -72,42 +72,42 @@
 }
 ```
 
-`severity` совпадает с легендой UI: 3 Serious, 2 Moderate, 1 Minor. `effect` берётся из `EffLong`. `whatToDo` берётся из `CombiStatusText`, но поле обрезано до 50 символов, поэтому полную формулировку лучше брать по коду `CombiStatus` из словаря в глоссарии руководства Scholz.
+`severity` matches the UI legend: 3 Serious, 2 Moderate, 1 Minor. `effect` comes from `EffLong`. `whatToDo` comes from `CombiStatusText`, but that field is cut at 50 characters, so take the full wording by the `CombiStatus` code from the dictionary in the Scholz manual's glossary.
 
-Поля `DetectedIssue`:
+`DetectedIssue` fields:
 
-| Поле | Значение |
+| Field | Value |
 | --- | --- |
 | `identifier` | system `urn:fhir-camp-2026:scholz-interaction`, value `{id}-{InteractionCcode}` |
-| `status` | `final`; `cancelled`, когда пара пропала при повторной проверке |
-| `code` | `http://terminology.hl7.org/CodeSystem/v3-ActCode`, код `DRG`, display `Drug Interaction Alert` |
+| `status` | `final`; `cancelled` when the pair is gone on a repeat check |
+| `code` | `http://terminology.hl7.org/CodeSystem/v3-ActCode`, code `DRG`, display `Drug Interaction Alert` |
 | `severity` | 3 → `high`, 2 → `moderate`, 1 → `low` |
 | `patient` | `Patient/{id}` |
-| `identifiedDateTime` | время проверки |
-| `implicated` | `ExplanationOfBenefit` последнего отпуска каждого лекарства из пары |
-| `detail` | `EffLong` и `whatToDo` через ` \| ` |
+| `identifiedDateTime` | time of the check |
+| `implicated` | the `ExplanationOfBenefit` of the latest fill of each medicine in the pair |
+| `detail` | `EffLong` and `whatToDo` joined with ` \| ` |
 
-## 5. Ключ и лимиты
+## 5. Key and limits
 
-* UCI (ключ клиента Scholz) передаётся прямо в пути URL. Он берётся из `SCHOLZ_UCI` и в логах заменяется на `***`. Репозиторий публичный: ключ и секреты Aidbox не коммитятся.
-* Вызовы Scholz идут только по `https`.
-* Лимит длины URL: 30 RxCUI (324 символа) проходят, 40 RxCUI (394 символа) дают HTTP 400.
+* The UCI (Scholz customer key) goes straight into the URL path. It is read from `SCHOLZ_UCI` and replaced with `***` in logs. This repository is public: never commit the key or Aidbox secrets.
+* Scholz calls go over `https` only.
+* URL length: 30 RxCUIs (324 characters) pass, 40 RxCUIs (394 characters) return HTTP 400.
 
-## 6. Проверочные запросы
+## 6. Test requests
 
-| RxCUI в `interactionsbyrxcuisex` | Ожидаемый результат |
+| RxCUIs sent to `interactionsbyrxcuisex` | Expected result |
 | --- | --- |
-| `198211,197853` (simvastatin 40 mg + ketoconazole 200 mg) | 1 пара, `red`, `Relevance` 5, `CombiStatus` 1 (contraindication) |
-| `314076,849574` (lisinopril 10 mg + naproxen sodium 220 mg) | 1 пара, `yellow`, `Relevance` 4, `InteractionCcode` 38010552 |
-| `856987,205532,314076` (hydrocodone/acetaminophen, Pulmozyme, lisinopril) | `ErrorCode = 2`, взаимодействий нет |
-| `36567,6135` (RxCUI веществ simvastatin и ketoconazole) | `ErrorCode = 8` |
+| `198211,197853` (simvastatin 40 mg + ketoconazole 200 mg) | 1 pair, `red`, `Relevance` 5, `CombiStatus` 1 (contraindication) |
+| `314076,849574` (lisinopril 10 mg + naproxen sodium 220 mg) | 1 pair, `yellow`, `Relevance` 4, `InteractionCcode` 38010552 |
+| `856987,205532,314076` (hydrocodone/acetaminophen, Pulmozyme, lisinopril) | `ErrorCode = 2`, no interactions |
+| `36567,6135` (ingredient RxCUIs for simvastatin and ketoconazole) | `ErrorCode = 8` |
 
-Синтетический пациент из песочницы CMS Blue Button на `asOf=2024-12-18` принимает hydrocodone/acetaminophen, Pulmozyme и lisinopril, и взаимодействий у него нет. Пара lisinopril + naproxen находится только без фильтра по датам: naproxen отпущен один раз в марте 2015 года, lisinopril с 2020 года.
+The synthetic patient from the CMS Blue Button sandbox takes hydrocodone/acetaminophen, Pulmozyme and lisinopril on `asOf=2024-12-18` and has no interactions. The lisinopril + naproxen pair shows up only without the date filter: naproxen was filled once in March 2015, lisinopril from 2020 on.
 
 ## Sources
 
-* FHIR R4, DetectedIssue: <https://hl7.org/fhir/R4/detectedissue.html>. `status`: «registered | preliminary | final | amended +», `severity`: «high | moderate | low».
-* HL7 Terminology, v3 ActCode: <https://terminology.hl7.org/CodeSystem-v3-ActCode.json>. Код `DRG`: «Drug Interaction Alert».
-* CARIN Blue Button 2.0.0, Pharmacy EOB: <https://hl7.org/fhir/us/carin-bb/STU2/StructureDefinition-C4BB-ExplanationOfBenefit-Pharmacy.html>. `item.productOrService` обязателен, с обязательной привязкой к набору NDC или compound (`FDANDCOrCompound`); срез `supportingInfo:dayssupply` обязателен, значение `Quantity`.
-* RxNav, getNDCStatus: <https://lhncbc.nlm.nih.gov/RxNav/APIs/api-RxNorm.getNDCStatus.html>. «OBSOLETE The NDC previously existed in RxNorm, but is no longer recognized as active. The history data will indicate the time periods and RxCUI(s) associated with the NDC.»
-* Scholz DataBank, список функций: <https://rest.scholzdatabank.com/ditwebservices/default.htm>. «interactionsbyrxcuisex/1234567890/198211,897649», «distinctdrugsbyrxcui/1234567890/198032», «interactionfulltext/1234567890/40010501».
+* FHIR R4, DetectedIssue: <https://hl7.org/fhir/R4/detectedissue.html>. `status`: "registered | preliminary | final | amended +"; `severity`: "high | moderate | low".
+* HL7 Terminology, v3 ActCode: <https://terminology.hl7.org/CodeSystem-v3-ActCode.json>. Code `DRG`: "Drug Interaction Alert".
+* CARIN Blue Button 2.0.0, Pharmacy EOB: <https://hl7.org/fhir/us/carin-bb/STU2/StructureDefinition-C4BB-ExplanationOfBenefit-Pharmacy.html>. `item.productOrService` is required, with a required binding to the NDC-or-compound value set (`FDANDCOrCompound`); the `supportingInfo:dayssupply` slice is required, with a `Quantity` value.
+* RxNav, getNDCStatus: <https://lhncbc.nlm.nih.gov/RxNav/APIs/api-RxNorm.getNDCStatus.html>. "OBSOLETE The NDC previously existed in RxNorm, but is no longer recognized as active. The history data will indicate the time periods and RxCUI(s) associated with the NDC."
+* Scholz DataBank, function list: <https://rest.scholzdatabank.com/ditwebservices/default.htm>. "interactionsbyrxcuisex/1234567890/198211,897649", "distinctdrugsbyrxcui/1234567890/198032", "interactionfulltext/1234567890/40010501".
