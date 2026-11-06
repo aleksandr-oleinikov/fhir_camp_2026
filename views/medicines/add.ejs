@@ -15,14 +15,25 @@
 <p class="lead">Add anything else you take, such as medicines you buy yourself, vitamins or herbal remedies. Your doctor will be able to see it.</p>
 
 <form method="post" action="/medicines/add" novalidate>
-  <div class="field <%= errors && errors.name ? 'field-error' : '' %>">
-    <label for="name">Name of the medicine</label>
-    <% if (errors && errors.name) { %>
-      <p class="error-message" id="name-error"><span class="visually-hidden">Error: </span><%= errors.name %></p>
+  <div class="field <%= errors && errors.choice ? 'field-error' : '' %>">
+    <label for="choice">Which medicine?</label>
+    <p class="hint" id="choice-hint">Choose from medicines you can buy without a prescription.</p>
+    <% if (errors && errors.choice) { %>
+      <p class="error-message" id="choice-error"><span class="visually-hidden">Error: </span><%= errors.choice %></p>
     <% } %>
-    <input id="name" name="name" type="text" autocomplete="off" spellcheck="false"
-      value="<%= values.name || '' %>"
-      <% if (errors && errors.name) { %>aria-invalid="true" aria-describedby="name-error"<% } %>>
+    <select id="choice" name="choice"
+      aria-describedby="choice-hint<%= errors && errors.choice ? ' choice-error' : '' %>"
+      <% if (errors && errors.choice) { %>aria-invalid="true"<% } %>>
+      <option value="">Choose a medicine</option>
+      <% otc.forEach(o => { %>
+        <option value="<%= o.id %>" <%= values.choice === o.id ? 'selected' : '' %>><%= o.name %><%= o.contains.toLowerCase() !== o.name.toLowerCase() ? ` (${o.contains.replace(/ \(.*\)$/, '')})` : '' %></option>
+      <% }) %>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="name">Not in the list? Type its name <span class="optional">(optional)</span></label>
+    <input id="name" name="name" type="text" autocomplete="off" spellcheck="false" value="<%= values.name || '' %>">
   </div>
 
   <div class="field">

@@ -45,4 +45,32 @@ module.exports = [
       'If you get muscle aches you cannot explain, tell your doctor.',
     ],
   },
+  {
+    id: 'ramipril-potassium',
+    severity: 3,
+    medicines: ['ramipril', 'potassium'],
+    summary:
+      'These 2 interact. You need to talk to your doctor today before taking any more potassium.',
+    whatCouldHappen:
+      'Ramipril makes your body hold on to potassium. Taking extra potassium as well can raise it to a dangerous level, which can affect your heartbeat.',
+    whatToDo: [
+      'Stop taking the potassium until you have spoken to your doctor.',
+      'Keep taking ramipril.',
+      'If you feel weak, sick or your heartbeat feels odd, call 111. In an emergency, call 999.',
+    ],
+  },
+  {
+    id: 'ramipril-naproxen',
+    severity: 2,
+    medicines: ['ramipril', 'naproxen'],
+    summary:
+      'These 2 medicines interact. Talk to your doctor or a pharmacist about finding a different painkiller.',
+    whatCouldHappen:
+      'Naproxen can stop ramipril lowering your blood pressure as well as it should. Taking them together can also harm your kidneys.',
+    whatToDo: [
+      'Keep taking ramipril.',
+      'Do not take any more naproxen until you have spoken to a pharmacist or your doctor.',
+      'Ask them which painkiller is safe for you instead.',
+    ],
+  },
 ];

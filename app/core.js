@@ -3,6 +3,7 @@
 
 const seed = require('../data/patient');
 const interactions = require('../data/interactions');
+const otc = require('../data/otc');
 
 // Fixed "today" so the mock data stays sensible. Swap for new Date() with real data.
 const TODAY = new Date('2026-11-06T09:00:00');
@@ -114,15 +115,24 @@ function activeMedicines(state) {
     .sort((a, b) => a.medication.localeCompare(b.medication));
 }
 
-const matchKey = (name) => name.trim().split(/\s+/)[0].toLowerCase();
+// What a medicine is matched on for conflicts: its active ingredients when
+// known (e.g. Advil -> ibuprofen), otherwise the first word of its name.
+const matchKeys = (m) => m.ingredients || [m.medication.trim().split(/\s+/)[0].toLowerCase()];
 
-// Every rule whose two medicines are both on the active list, most serious first.
+// Every pair of active medicines that a rule covers, most serious first.
+// Two products with the same ingredient (Ibuprofen and Advil) each get their own conflict.
 function findConflicts(state, meds = activeMedicines(state)) {
-  const byKey = new Map(meds.map((m) => [matchKey(m.medication), m]));
-  return interactions
-    .filter((r) => r.medicines.every((k) => byKey.has(k)))
-    .map((r) => ({ ...r, meds: r.medicines.map((k) => byKey.get(k)), severityInfo: SEVERITY[r.severity] }))
-    .sort((a, b) => b.severity - a.severity);
+  const byKey = new Map();
+  for (const m of meds) for (const k of matchKeys(m)) byKey.set(k, [...(byKey.get(k) || []), m]);
+  const out = [];
+  for (const r of interactions) {
+    const [left, right] = r.medicines.map((k) => byKey.get(k) || []);
+    for (const a of left) for (const b of right) {
+      if (a.id === b.id) continue;
+      out.push({ ...r, id: `${r.id}-${a.id}-${b.id}`, meds: [a, b], severityInfo: SEVERITY[r.severity] });
+    }
+  }
+  return out.sort((x, y) => y.severity - x.severity);
 }
 
 // ---- Routes ------------------------------------------------------------
@@ -191,22 +201,30 @@ const routes = [
 
   ['GET', '/medicines/add', () => ({
     view: 'medicines/add',
-    locals: { title: 'Add a medicine', values: {}, errors: null },
+    locals: { title: 'Add a medicine', values: {}, errors: null, otc },
   })],
 
   ['POST', '/medicines/add', (s, p, q, body) => {
     const values = {
+      choice: (body.choice || '').trim(),
       name: (body.name || '').trim(),
       reason: (body.reason || '').trim(),
       dose: (body.dose || '').trim(),
     };
-    if (!values.name) {
+    // A typed name wins over the list, in case they picked one then typed another.
+    const picked = otc.find((o) => o.id === values.choice);
+    const name = values.name || (picked && picked.name);
+    if (!name) {
       return {
         status: 400,
         view: 'medicines/add',
-        locals: { title: 'Error: Add a medicine', values, errors: { name: 'Enter the name of the medicine' } },
+        locals: {
+          title: 'Error: Add a medicine', values, otc,
+          errors: { choice: 'Choose a medicine from the list, or type its name' },
+        },
       };
     }
+    const fromList = !values.name && picked;
     const id = `m${s.nextId++}`;
     s.record.medications.push({
       resourceType: 'MedicationStatement',
@@ -214,7 +232,8 @@ const routes = [
       status: 'active',
       source: 'patient',
       addedOn: TODAY.toISOString().slice(0, 10),
-      medication: values.name,
+      medication: name,
+      ...(fromList && { strength: `Contains ${picked.contains}`, ingredients: picked.ingredients }),
       reason: values.reason ? `For ${values.reason.replace(/^for\s+/i, '')}` : '',
       dosageInstruction: values.dose,
     });
