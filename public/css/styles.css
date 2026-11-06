@@ -567,3 +567,17 @@ a:hover { text-decoration-thickness: 3px; }
 
 .description-heading { margin-top: var(--space-4); }
 .description { font-size: 1.2rem; line-height: 1.5; }
+
+/* ---- Demo note (static build only) ----------------------------------- */
+.demo-note { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px dashed var(--border); color: var(--text-muted); }
+.demo-reset {
+  min-height: var(--tap);
+  margin-top: var(--space-1);
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--link);
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}

@@ -1,0 +1,299 @@
+// Shared app logic. Used by the Express dev server (server.js) and by the
+// static, in-browser demo build (client/main.js). No Node or browser APIs here.
+
+const seed = require('../data/patient');
+const interactions = require('../data/interactions');
+
+// Fixed "today" so the mock data stays sensible. Swap for new Date() with real data.
+const TODAY = new Date('2026-11-06T09:00:00');
+
+// ---- State -------------------------------------------------------------
+// Everything that changes during a demo lives here, so it can be saved as JSON.
+function createState() {
+  return {
+    record: JSON.parse(JSON.stringify(seed)),
+    repeatRequests: [],
+    nextId: 100,
+  };
+}
+
+// ---- Formatting: plain English, e.g. "Thursday 12 November" -------------
+const dayFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  const text = dayFmt.format(d);
+  return d.getFullYear() === TODAY.getFullYear() ? text : `${text} ${d.getFullYear()}`;
+}
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const suffix = h < 12 ? 'am' : 'pm';
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, '0')}${suffix}`;
+}
+
+function daysFromToday(iso) {
+  const start = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((start(new Date(iso)) - start(TODAY)) / 86400000);
+}
+
+function relativeDay(iso) {
+  const n = daysFromToday(iso);
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  if (n === -1) return 'Yesterday';
+  if (n > 1) return `In ${n} days`;
+  return `${-n} days ago`;
+}
+
+// "today at 7:45am" / "Thursday 5 November at 7:45am"
+function formatWhen(iso) {
+  const n = daysFromToday(iso);
+  const day = n === 0 ? 'today' : n === -1 ? 'yesterday' : formatDate(iso);
+  return `${day} at ${formatTime(iso)}`;
+}
+
+// Severity scale from wireframe 2: one to three "!" marks.
+const SEVERITY = {
+  3: { label: 'Serious', advice: 'Act today' },
+  2: { label: 'Moderate', advice: 'Check with a pharmacist or doctor soon' },
+  1: { label: 'Minor', advice: 'Good to know' },
+};
+
+// Locals every template can use.
+function baseLocals(state) {
+  return {
+    formatDate, formatTime, relativeDay, formatWhen, SEVERITY,
+    patientName: state.record.patient.name[0].given[0],
+  };
+}
+
+// ---- View models -------------------------------------------------------
+function toAppointment(a) {
+  return { ...a, upcoming: a.status === 'booked' && daysFromToday(a.start) >= 0 };
+}
+
+const RESULT_STATUS = {
+  normal: { label: 'Normal', tone: 'ok' },
+  high: { label: 'Higher than normal', tone: 'warn' },
+  low: { label: 'Lower than normal', tone: 'warn' },
+  waiting: { label: 'Waiting for result', tone: 'neutral' },
+};
+
+function toResult(o) {
+  const key = o.status === 'preliminary' ? 'waiting' : o.interpretation;
+  let range = null;
+  if (o.referenceRange) {
+    const { low, high } = o.referenceRange;
+    if (low != null && high != null) range = `${low} to ${high} ${o.unit}`;
+    else if (high != null) range = `Below ${high} ${o.unit}`;
+    else if (low != null) range = `Above ${low} ${o.unit}`;
+  }
+  return { ...o, statusInfo: RESULT_STATUS[key], range };
+}
+
+// Small, non-alarming tags. "!" is kept for conflicts only.
+function toMedicine(state, m) {
+  const tags = [];
+  const requested = state.repeatRequests.includes(m.id);
+  if (m.repeat && !requested && daysFromToday(m.repeat.nextDue) <= 7) {
+    tags.push({ tone: 'neutral', text: `Repeat due ${formatDate(m.repeat.nextDue)}` });
+  }
+  if (m.changeNote) tags.push({ tone: 'neutral', text: m.changeNote });
+  if (m.source === 'patient') tags.push({ tone: 'neutral', text: 'Bought by you' });
+  return { ...m, tags, requested };
+}
+
+function activeMedicines(state) {
+  return state.record.medications
+    .filter((m) => m.status === 'active')
+    .map((m) => toMedicine(state, m))
+    .sort((a, b) => a.medication.localeCompare(b.medication));
+}
+
+const matchKey = (name) => name.trim().split(/\s+/)[0].toLowerCase();
+
+// Every rule whose two medicines are both on the active list, most serious first.
+function findConflicts(state, meds = activeMedicines(state)) {
+  const byKey = new Map(meds.map((m) => [matchKey(m.medication), m]));
+  return interactions
+    .filter((r) => r.medicines.every((k) => byKey.has(k)))
+    .map((r) => ({ ...r, meds: r.medicines.map((k) => byKey.get(k)), severityInfo: SEVERITY[r.severity] }))
+    .sort((a, b) => b.severity - a.severity);
+}
+
+// ---- Routes ------------------------------------------------------------
+// Each handler returns one of:
+//   { view, locals, status? }  render a template
+//   { redirect }               go to another path (after a form post)
+const notFound = () => ({ status: 404, view: '404', locals: { title: 'Page not found' } });
+
+const routes = [
+  // Home is the medicines screen (wireframe 1).
+  ['GET', '/', (s, p, q) => {
+    const meds = activeMedicines(s);
+    let notice = null;
+    if (q.updated === 'changes') notice = 'Your list is up to date. We found changes from your doctor, shown below.';
+    if (q.updated === 'none') notice = 'Your list is up to date. Nothing has changed.';
+    if (q.reset === '1') notice = 'The demo has been reset.';
+    const added = q.added && s.record.medications.find((m) => m.id === q.added);
+    if (added) notice = `${added.medication} has been added to your list.`;
+    const conflicts = findConflicts(s, meds);
+    const inConflict = new Set(conflicts.flatMap((c) => c.meds.map((m) => m.id)));
+    return {
+      view: 'index',
+      locals: {
+        title: 'Your medicines',
+        conflicts,
+        others: meds.filter((m) => !inConflict.has(m.id)),
+        lastUpdated: s.record.medicationsLastUpdated,
+        notice,
+      },
+    };
+  }],
+
+  ['GET', '/medicines', () => ({ redirect: '/' })],
+
+  // Conflict summary (wireframe 3): reached by tapping the "!" marks.
+  ['GET', '/conflicts/:id', (s, p) => {
+    const conflict = findConflicts(s).find((c) => c.id === p.id);
+    if (!conflict) return notFound();
+    return {
+      view: 'conflicts/summary',
+      locals: { title: `${conflict.meds[0].medication} and ${conflict.meds[1].medication}`, conflict },
+    };
+  }],
+
+  // Fuller conflict page. Kept, but not linked from anywhere yet.
+  ['GET', '/conflicts/:id/more', (s, p, q) => {
+    const conflict = findConflicts(s).find((c) => c.id === p.id);
+    if (!conflict) return notFound();
+    const meds = [...conflict.meds].sort((a) => (a.id === q.from ? -1 : 1));
+    return {
+      view: 'conflicts/detail',
+      locals: {
+        title: `${meds[0].medication} and ${meds[1].medication}`,
+        conflict: { ...conflict, meds },
+        practice: s.record.patient.practice,
+      },
+    };
+  }],
+
+  ['POST', '/medicines/update', (s) => {
+    const changes = s.record.pendingRecordChanges.splice(0);
+    s.record.medications.push(...changes);
+    s.record.medicationsLastUpdated = new Date().toISOString();
+    return { redirect: `/?updated=${changes.length ? 'changes' : 'none'}` };
+  }],
+
+  ['GET', '/medicines/add', () => ({
+    view: 'medicines/add',
+    locals: { title: 'Add a medicine', values: {}, errors: null },
+  })],
+
+  ['POST', '/medicines/add', (s, p, q, body) => {
+    const values = {
+      name: (body.name || '').trim(),
+      reason: (body.reason || '').trim(),
+      dose: (body.dose || '').trim(),
+    };
+    if (!values.name) {
+      return {
+        status: 400,
+        view: 'medicines/add',
+        locals: { title: 'Error: Add a medicine', values, errors: { name: 'Enter the name of the medicine' } },
+      };
+    }
+    const id = `m${s.nextId++}`;
+    s.record.medications.push({
+      resourceType: 'MedicationStatement',
+      id,
+      status: 'active',
+      source: 'patient',
+      addedOn: TODAY.toISOString().slice(0, 10),
+      medication: values.name,
+      reason: values.reason ? `For ${values.reason.replace(/^for\s+/i, '')}` : '',
+      dosageInstruction: values.dose,
+    });
+    return { redirect: `/?added=${id}` };
+  }],
+
+  ['GET', '/medicines/:id', (s, p, q) => {
+    const m = s.record.medications.find((x) => x.id === p.id);
+    if (!m) return notFound();
+    return {
+      view: 'medicines/detail',
+      locals: {
+        title: m.medication,
+        med: toMedicine(s, m),
+        conflicts: findConflicts(s).filter((c) => c.meds.some((x) => x.id === m.id)),
+        justRequested: q.requested === '1',
+      },
+    };
+  }],
+
+  ['POST', '/medicines/:id/repeat', (s, p) => {
+    const m = s.record.medications.find((x) => x.id === p.id);
+    if (!m) return notFound();
+    if (m.repeat && !s.repeatRequests.includes(m.id)) s.repeatRequests.push(m.id);
+    return { redirect: `/medicines/${m.id}?requested=1` };
+  }],
+
+  ['GET', '/appointments', (s) => {
+    const all = s.record.appointments.map(toAppointment);
+    return {
+      view: 'appointments/list',
+      locals: {
+        title: 'Appointments',
+        upcoming: all.filter((a) => a.upcoming).sort((a, b) => a.start.localeCompare(b.start)),
+        past: all.filter((a) => !a.upcoming).sort((a, b) => b.start.localeCompare(a.start)),
+      },
+    };
+  }],
+
+  ['GET', '/appointments/:id', (s, p) => {
+    const a = s.record.appointments.find((x) => x.id === p.id);
+    if (!a) return notFound();
+    return { view: 'appointments/detail', locals: { title: a.serviceType, appt: toAppointment(a) } };
+  }],
+
+  ['GET', '/results', (s) => {
+    const results = s.record.observations.map(toResult)
+      .sort((a, b) => b.effectiveDateTime.localeCompare(a.effectiveDateTime));
+    return { view: 'results/list', locals: { title: 'Test results', results } };
+  }],
+
+  ['GET', '/results/:id', (s, p) => {
+    const o = s.record.observations.find((x) => x.id === p.id);
+    if (!o) return notFound();
+    return { view: 'results/detail', locals: { title: o.plainName, result: toResult(o) } };
+  }],
+];
+
+// Turn '/medicines/:id' into a matcher once.
+const compiled = routes.map(([method, pattern, handler]) => {
+  const names = [];
+  const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, n) => (names.push(n), '([^/]+)')) + '/?$');
+  return { method, re, names, handler };
+});
+
+// Run one request against the state. state may be changed by POST handlers.
+function handle(state, method, path, query = {}, body = {}) {
+  for (const r of compiled) {
+    if (r.method !== method) continue;
+    const m = path.match(r.re);
+    if (!m) continue;
+    const params = Object.fromEntries(r.names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
+    const result = r.handler(state, params, query, body);
+    if (result.view) result.locals = { ...baseLocals(state), ...result.locals };
+    return result;
+  }
+  const result = notFound();
+  result.locals = { ...baseLocals(state), ...result.locals };
+  return result;
+}
+
+module.exports = { createState, handle };
