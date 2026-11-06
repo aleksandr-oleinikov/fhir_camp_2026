@@ -1,9 +1,9 @@
-// In-browser runtime for the static demo. Uses the same app/core.js as the
+// In-browser runtime for the static demo. Uses the same lib/core.js as the
 // Express server; templates are precompiled by build.js into ./templates.
 // Pages are addressed by hash (#/medicines/m1) so any static host works,
 // and demo changes are saved in this browser only.
 
-const { createState, handle } = require('../app/core');
+const { createState, handle } = require('../lib/core');
 const templates = require('../build/templates');
 
 const STORAGE_KEY = 'medicines-demo-state-v1';

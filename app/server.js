@@ -1,8 +1,8 @@
-// Express dev server. All page logic lives in app/core.js, shared with the
+// Express dev server. All page logic lives in lib/core.js, shared with the
 // static demo build (npm run build:demo).
 const path = require('node:path');
 const express = require('express');
-const { createState, handle } = require('./app/core');
+const { createState, handle } = require('./lib/core');
 
 const app = express();
 app.set('view engine', 'ejs');
